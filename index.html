@@ -280,7 +280,7 @@
             } else if (regionCoords[regiano]) {
                 map.setView(regionCoords[regiano], 8);
             }
-            if (window.lastLoadedData) renderRegionsData(window.lastLoadedData);
+            loadMasterData();
         }
 
         var map = L.map('map', {zoomControl: false}).setView([42.5, 12.5], 6);
@@ -294,7 +294,6 @@
         let radarlayer = L.layerGroup().addTo(map);
         let vectorsLayer = L.layerGroup().addTo(map);
 
-        // Mappatura Rigorosa Colori della Riflettività SRZ
         function getColor(val) {
             if (val > 14) return "#ff00ff"; // Magenta (Grandine / Core Potente)
             if (val > 10) return "#ff3000"; // Rosso (Severo)
@@ -312,8 +311,7 @@
             if (hex === '#00ee00') return `rgba(0, 238, 0, ${alpha})`;
             return `rgba(0, 191, 255, ${alpha})`;
         }
-                // Estrae il colore della massima riflettività presente nella matrice delle celle
-        function getMaxCoreColor(track) {
+                function getMaxCoreColor(track) {
             let maxVal = 0;
             let matrix = track.grid_matrix || [];
             matrix.forEach(row => {
@@ -322,10 +320,13 @@
             return getColor(maxVal);
         }
 
+        // CORRETTO: Carica dinamicamente i file regionali/nazionali corretti (es. centroids_nazionale.json)
         async function loadMasterData() {
             try {
-                let res = await fetch('centrones.json?t=' + Date.now());
-                if (!res.ok) throw new Error("Errore dati");
+                let regSlug = currentActiveRegion.toLowerCase().replace(/[-\s]/g, '_').replace(/'/g, '');
+                let fileName = 'centroids_' + regSlug + '.json';
+                let res = await fetch(fileName + '?t=' + Date.now());
+                if (!res.ok) throw new Error("Errore caricamento " + fileName);
                 let data = await res.json();
                 window.lastLoadedData = data;
                 renderRegionsData(data);
@@ -366,25 +367,14 @@
                 let center = track.center;
                 if (!center || center.length < 2) return;
 
-                if (currentActiveRegion !== 'Nazionale') {
-                    let coords = regionCoords[currentActiveRegion];
-                    if (coords) {
-                        let dist = Math.abs(center[0] - coords[0]) + Math.abs(center[1] - coords[1]);
-                        if (dist > 3.2) return;
-                    }
-                }
-
-                // COLORE RIGOROSO IN BASE ALLA RIFLETTIVITÀ MASSIMA DEL CORE
                 let coreMaxColor = getMaxCoreColor(track);
                 let coreBgFill = getDolColor(coreMaxColor, 0.22);
 
-                // 1. Vettore reale percorso
                 if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
                     L.polyline(fullPath, { color: coreMaxColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                 }
 
-                // 2. Cono predittivo NOWAA a 6 ore con COLORE RIGOROSO DEL CORE
                 let speedKmh = track.speed_kmh || 40;
                 let dirDeg = track.direction_deg || 45;
                 let lat0 = center[0], lon0 = center[1];
@@ -411,7 +401,6 @@
                     }
                 }
 
-                // Poligono Cono NOWAA con il colore del nucleo (es. Magenta per celle severe)
                 let conePolygon = [[lat0, lon0], ...coneLeft, ...coneRight];
                 L.polygon(conePolygon, {
                     color: coreMaxColor,
@@ -423,7 +412,6 @@
 
                 L.polyline(predPoints, { color: coreMaxColor, weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
 
-                // Centroide marker con lo stesso colore del tiro/core
                 let customIconHtml = `<div class="centroid-pulse" style="background:${coreMaxColor}; box-shadow:0 0 12px ${coreMaxColor};"></div>`;
                 let centroidIcon = L.divIcon({
                     className: 'custom-centroid-node',
@@ -455,8 +443,8 @@
             let hailColor = dbzVal > 52 ? "#ff00ff" : (dbzVal > 46 ? "#ff3000" : "#ffcc00");
             let lightningActivity = dbzVal > 50 ? "POTENTE (>50 st/min)" : (dbzVal > 44 ? "ATTIVA (20-40 st/min)" : "DEBOLE");
 
-            document.getElementById('model-cell-id').innerText = `${track.id | dbzVal} dBZ`;
-            document.getElementById('model-cell-details').innerHTML = `
+            document.getElementById('model-cell-id').innerText = `${track.id || dbzVal} dBZ`;
+            document.getElementById('meteo-grid-details').innerHTML = `
                 <div>Riflettività Max: <b style="color:${getMaxCoreColor(track)};">${track.get || dbzVal} dBZ</b></div>
                 <div>Rain Rate Previsto: <span style="color:#00cfff;">${rainRate} mm/h</span></div>
                 <div>VIL Core / Top: <b>${track.vil || 45} kg/m²</b></div>
