@@ -219,8 +219,121 @@
 
     <div class="mats-header">
         <div class="mats-title">MATS</div>
-        <div class="
-                    async function loadMasterData() {
+        <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
+    </div>
+
+    <div class="region-nav" id="region-nav-container">
+        <button class="region-btn active" onclick="filterRegion('Nazionale', this)">Nazionale</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="map-banner">
+        <span>Strutture 3D: <b id="total-count" style="color:#00bfff;">0</b></span>
+        <span>Aggiornato: <b id="last-update">-</b></span>
+    </div>
+
+    <div id="viewer-3d-modal">
+        <div class="modal-info-bar">
+            <div>
+                <b id="modal-cell-id" style="font-size: 15px; color: #00bfff;">Core 3D</b>
+                <div class="meteo-grid-info" id="modal-cell-details"></div>
+            </div>
+            <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
+        </div>
+        
+        <div id="canvas-3d-container">
+            <canvas id="viewer-canvas"></canvas>
+
+            <div class="mode-selector-bar">
+                <button class="mode-btn active" id="btn-mode-voxel" onclick="set3DMode('voxel')">VOXEL 3D</button>
+                <button class="mode-btn" id="btn-mode-holo" onclick="set3DMode('holo')">HOLO WIREFRAME</button>
+                <button class="mode-btn" id="btn-mode-vol" onclick="set3DMode('volumetric')">NUBE VOLUMETRICA</button>
+            </div>
+        </div>
+        <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const regionsList = [
+            "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", 
+            "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", 
+            "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", 
+            "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"
+        ];
+
+        const regionCoords = {
+            "Abruzzo": [42.35, 13.4], "Basilicata": [40.64, 16.55], "Calabria": [39.3, 16.5],
+            "Campania": [40.85, 14.26], "Emilia-Romagna": [44.49, 11.34], "Friuli-Venezia Giulia": [46.06, 13.23],
+            "Lazio": [41.9, 12.5], "Liguria": [44.4, 8.93], "Lombardia": [45.46, 9.19],
+            "Marche": [43.61, 13.51], "Molise": [41.56, 14.66], "Piemonte": [45.07, 7.68],
+            "Puglia": [41.12, 16.86], "Sardegna": [40.12, 9.01], "Sicilia": [37.59, 14.01],
+            "Toscana": [43.76, 11.25], "Trentino-Alto Adige": [46.49, 11.35], "Umbria": [43.11, 12.38],
+            "Valle d'Aosta": [45.73, 7.31], "Veneto": [45.44, 12.31]
+        };
+
+        let currentActiveRegion = 'Nazionale';
+        const navContainer = document.getElementById('region-nav-container');
+        regionsList.forEach(reg => {
+            let btn = document.createElement('button');
+            btn.className = 'region-btn';
+            btn.innerText = reg;
+            btn.onclick = (e) => filterRegion(reg, e.target);
+            navContainer.appendChild(btn);
+        });
+
+        function filterRegion(regName, btnElement) {
+            currentActiveRegion = regName;
+            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
+
+            if (regName === 'Nazionale') {
+                map.setView([42.5, 12.5], 6);
+            } else if (regionCoords[regName]) {
+                map.setView(regionCoords[regName], 8);
+            }
+            if (window.lastLoadedData) renderRegionalData(window.lastLoadedData);
+        }
+
+        var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+
+        let radarLayer = L.layerGroup().addTo(map);
+        let vectorsLayer = L.layerGroup().addTo(map);
+
+        function getColor(val) {
+            if (val >= 14) return '#ff00ff';
+            if (val > 10) return '#ff0000';
+            if (val > 8)  return '#ff7700';
+            if (val > 6)  return '#ffcc00';
+            if (val > 3)  return '#00cc00';
+            return '#00bfff';
+        }
+
+        function getHoloColor(hex, alpha) {
+            if (hex === '#ff00ff') return `rgba(255, 0, 255, ${alpha})`;
+            if (hex === '#ff0000') return `rgba(255, 0, 0, ${alpha})`;
+            if (hex === '#ff7700') return `rgba(255, 119, 0, ${alpha})`;
+            if (hex === '#ffcc00') return `rgba(255, 204, 0, ${alpha})`;
+            if (hex === '#00cc00') return `rgba(0, 204, 0, ${alpha})`;
+            return `rgba(0, 191, 255, ${alpha})`;
+        }
+
+        function getMaxCoreColor(track) {
+            let maxVal = 0;
+            let matrix = track.grid_matrix || [];
+            matrix.forEach(row => {
+                row.forEach(val => { if (val > maxVal) maxVal = val; });
+            });
+            return getColor(maxVal);
+        }
+                async function loadMasterData() {
             try {
                 let res = await fetch('centroids.json?t=' + Date.now());
                 if (!res.ok) throw new Error("Errore dati");
@@ -420,7 +533,7 @@
             lastMouseX = cx; lastMouseY = cy;
             if (!isWireframeMode) render3D();
         }, { passive: true });
-                        function render3D() {
+                function render3D() {
             if (!currentTrack) return;
 
             if (active3DViewMode === 'volumetric') {
@@ -476,7 +589,7 @@
             });
         }
 
-        // 2. VISTA NUBE VOLUMETRICA DEFINITA (Colonne traslucide + Core luminosi nitidi)
+        // 2. VISTA NUBE VOLUMETRICA (Colonne traslucide e core luminosi nitidi, senza sgranature)
         function renderVolumetricCloudMode() {
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
@@ -515,7 +628,7 @@
             let barW = scale * 0.85;
 
             columnsToDraw.forEach(col => {
-                // Corpo colonna semitrasparente
+                // Corpo colonna semitrasparente (struttura 3D pulita)
                 ctx.fillStyle = getHoloColor(col.color, 0.35);
                 ctx.strokeStyle = getHoloColor(col.color, 0.7);
                 ctx.lineWidth = 1;
@@ -605,5 +718,4 @@
         setInterval(loadMasterData, 180000);
     </script>
 </body>
-            </html>
-                
+</html>
