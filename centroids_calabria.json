@@ -1,0 +1,15 @@
+{
+    "generated_at": "2026-10-19T02:03:15.819130Z",
+    "radar_tile": {
+        "host": "https://tilecache.rainviewer.com",
+        "path": "/v2/radar/939e4f299fca"
+    },
+    "bbox": {
+        "lat_min": 37.9,
+        "lat_max": 40.2,
+        "lon_min": 15.6,
+        "lon_max": 17.2,
+        "zoom": 8
+    },
+    "macro_structures": []
+}
