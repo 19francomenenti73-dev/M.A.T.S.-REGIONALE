@@ -53,7 +53,7 @@ def get_latest_radar_and_satellite_info():
         if sat_infrared:
             sat_path = sat_infrared[-1].get("path", None)
     except Exception as e:
-        print("Avviso nel recupero API meteo: " + str(e))
+        print("Avviso recupero API meteo: " + str(e))
     return host, radar_path, sat_path
 
 def check_satellite_v_shape(host, sat_path, lat, lon, z=4):
@@ -251,6 +251,7 @@ def analyze_radar():
         except Exception as tile_err:
             print("Errore tile: " + str(tile_err))
 
+    # NESSUNA SIMULAZIONE: Se il radar non rileva strutture, global_structures sarà vuota e rifletterà fedelmente la realtà osservata.
     for reg_name, bbox in REGIONS_BBOX.items():
         reg_structures = []
         if reg_name == "Nazionale":
@@ -260,8 +261,6 @@ def analyze_radar():
                 lat, lon = st["center"]
                 if bbox["lat_min"] <= lat <= bbox["lat_max"] and bbox["lon_min"] <= lon <= bbox["lon_max"]:
                     reg_structures.append(st)
-            if not reg_structures and global_structures:
-                reg_structures = [global_structures[0]]
 
         reg_data = {
             "generated_at": datetime.utcnow().isoformat() + "Z",
@@ -276,7 +275,7 @@ def analyze_radar():
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(reg_data, f, indent=4, ensure_ascii=False)
 
-    print("MATS Engine: Generati file per Nazionale e tutte le Regioni. Totale strutture: " + str(len(global_structures)))
+    print("MATS Engine: Elaborazione completata. Strutture reali rilevate: " + str(len(global_structures)))
 
 if __name__ == "__main__":
     analyze_radar()
