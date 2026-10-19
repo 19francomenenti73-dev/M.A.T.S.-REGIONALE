@@ -271,7 +271,7 @@
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Mappa Esri World Imagery (gratuita, originale MATS, senza API key)
+        // Mappa Esri World Imagery (originale MATS, gratuita)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 18,
             attribution: 'Tiles &copy; Esri'
@@ -284,6 +284,12 @@
             if (val > 10) return '#ff0000';
             if (val > 6) return '#ffcc00';
             return '#00bfff';
+        }
+
+        function getHoloColor(hex, alpha) {
+            if (hex === '#ff0000') return `rgba(255, 0, 0, ${alpha})`;
+            if (hex === '#ffcc00') return `rgba(255, 204, 0, ${alpha})`;
+            return `rgba(0, 191, 255, ${alpha})`;
         }
 
         async function loadMasterData() {
@@ -308,7 +314,6 @@
                 radarLayer.addLayer(rLayer);
             }
 
-            // CORRETTO: legge macro_structures (generato dal tracker Python) o structures come fallback
             let structures = data.macro_structures || data.structures || [];
             document.getElementById('total-count').innerText = structures.length;
             document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
@@ -497,9 +502,10 @@
             columnsToDraw.sort((a, b) => a.depth - b.depth);
             let barW = scale * 0.85;
 
+            // Orologio/Wireframe 3D colorato con i parametri di riflettività in trasparenza
             columnsToDraw.forEach(col => {
-                ctx.fillStyle = 'rgba(0, 191, 255, 0.08)';
-                ctx.strokeStyle = 'rgba(0, 191, 255, 0.9)';
+                ctx.fillStyle = getHoloColor(col.color, 0.12);
+                ctx.strokeStyle = getHoloColor(col.color, 0.95);
                 ctx.lineWidth = 1.2;
                 ctx.beginPath();
                 ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
@@ -507,6 +513,7 @@
                 ctx.stroke();
             });
 
+            // Linea di scansione laser olografica
             let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
             ctx.strokeStyle = '#00ffcc';
             ctx.lineWidth = 2;
