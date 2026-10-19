@@ -2,8 +2,9 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>MATS 3D - Mesoscale Advanced Tracking System</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         html, body {
@@ -11,7 +12,7 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
-            background: #111111;
+            background: #000000;
             color: #fff;
             overflow: hidden;
         }
@@ -21,6 +22,7 @@
             height: 100vh;
         }
 
+        /* Header MATS */
         .mats-header {
             position: absolute;
             top: 12px;
@@ -28,23 +30,35 @@
             transform: translateX(-50%);
             z-index: 1000;
             text-align: center;
+            pointer-events: none;
             background: rgba(10, 10, 10, 0.85);
-            padding: 6px 20px;
-            border-radius: 20px;
+            padding: 8px 24px;
+            border-radius: 24px;
             border: 1px solid rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
         }
 
         .mats-title {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 900;
             letter-spacing: 2px;
             color: #00bfff;
         }
 
+        .mats-subtitle {
+            font-size: 10px;
+            font-weight: 700;
+            color: #00bfff;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* Navbar Regioni Superiore */
         .region-nav {
             position: absolute;
-            top: 70px;
+            top: 78px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
@@ -54,8 +68,9 @@
             max-width: 95vw;
             padding: 6px 12px;
             background: rgba(15, 15, 15, 0.9);
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
             scrollbar-width: none;
         }
         .region-nav::-webkit-scrollbar { display: none; }
@@ -64,19 +79,22 @@
             background: rgba(30, 30, 30, 0.8);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ccc;
-            padding: 5px 10px;
-            border-radius: 10px;
+            padding: 6px 12px;
+            border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             white-space: nowrap;
+            transition: all 0.2s;
         }
-        .region-btn.active {
+        .region-btn:hover, .region-btn.active {
             background: #00bfff;
             color: #000;
             border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.5);
         }
 
+        /* Banner Inferiore */
         .map-banner {
             position: absolute;
             bottom: 12px;
@@ -85,19 +103,22 @@
             z-index: 1000;
             background: rgba(10, 10, 10, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.15);
-            padding: 6px 14px;
-            border-radius: 10px;
+            padding: 8px 16px;
+            border-radius: 12px;
             font-size: 11px;
+            backdrop-filter: blur(8px);
             display: flex;
             gap: 15px;
+            align-items: center;
             white-space: nowrap;
         }
 
+        /* Modale Viewer 3D */
         #viewer-3d-modal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95);
+            background: rgba(0, 0, 0, 0.92);
             z-index: 2000;
             flex-direction: column;
             justify-content: center;
@@ -106,21 +127,22 @@
 
         .modal-info-bar {
             position: absolute;
-            top: 15px;
-            left: 15px; right: 15px;
+            top: 20px;
+            left: 20px; right: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: rgba(255, 255, 255, 0.08);
-            padding: 10px 15px;
-            border-radius: 8px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .close-btn {
             background: #ff3b30;
             color: #fff;
             border: none;
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
@@ -128,40 +150,51 @@
 
         #canvas-3d-container {
             width: 100%;
-            height: 65vh;
+            height: 70vh;
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: grab;
             position: relative;
         }
+        #canvas-3d-container:active { cursor: grabbing; }
 
         .holo-toggle-btn {
             position: absolute;
-            bottom: 15px;
+            bottom: 20px;
             background: linear-gradient(45deg, #007fff, #00bfff);
             color: #fff;
             border: none;
-            padding: 8px 16px;
-            border-radius: 15px;
+            padding: 10px 20px;
+            border-radius: 20px;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 12px;
             cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 75px;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
         }
 
         .centroid-pulse {
-            width: 14px; height: 14px;
+            width: 16px; height: 16px;
             background: #ffcc00;
             border: 2px solid #fff;
             border-radius: 50%;
-            box-shadow: 0 0 8px #ffcc00;
+            box-shadow: 0 0 10px #ffcc00;
         }
     </style>
 </head>
 <body>
 
     <div class="mats-header">
-        <div class="mats-title">MATS 3D</div>
+        <div class="mats-title">MATS</div>
+        <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
     </div>
 
     <div class="region-nav" id="region-nav-container">
@@ -171,26 +204,28 @@
     <div id="map"></div>
 
     <div class="map-banner">
-        <span>Celle: <b id="total-count" style="color:#00bfff;">0</b></span>
+        <span>Strutture 3D: <b id="total-count" style="color:#00bfff;">0</b></span>
         <span>Aggiornato: <b id="last-update">-</b></span>
     </div>
 
+    <!-- Modale Viewer 3D -->
     <div id="viewer-3d-modal">
         <div class="modal-info-bar">
             <div>
-                <b id="modal-cell-id" style="font-size: 14px; color: #00bfff;">Core 3D</b>
-                <div id="modal-cell-details" style="font-size: 10px; color: #ccc;">-</div>
+                <b id="modal-cell-id" style="font-size: 15px; color: #00bfff;">Core 3D</b>
+                <div id="modal-cell-details" style="font-size: 11px; color: #ccc;">-</div>
             </div>
-            <button class="close-btn" onclick="close3DViewer()">CHIUDI</button>
+            <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
         </div>
         
         <div id="canvas-3d-container">
             <canvas id="viewer-canvas"></canvas>
             <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">ATTIVA WIREFRAME 3D</button>
         </div>
-        <div style="font-size: 10px; color: #777; margin-top: 8px;">Trascina per ruotare</div>
+        <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
     </div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const regionsList = [
@@ -236,9 +271,10 @@
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        // Mappa Esri World Imagery (gratuita, senza API key)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 18,
-            attribution: '&copy; CartoDB'
+            attribution: 'Tiles &copy; Esri'
         }).addTo(map);
 
         let radarLayer = L.layerGroup().addTo(map);
@@ -253,7 +289,7 @@
         async function loadMasterData() {
             try {
                 let res = await fetch('centroids.json?t=' + Date.now());
-                if (!res.ok) return;
+                if (!res.ok) throw new Error("Errore dati");
                 let data = await res.json();
                 window.lastLoadedData = data;
                 renderRegionalData(data);
@@ -268,7 +304,7 @@
 
             if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
                 let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
-                let rLayer = L.tileLayer(radarUrl, { opacity: 0.65 });
+                let rLayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 });
                 radarLayer.addLayer(rLayer);
             }
 
@@ -289,12 +325,16 @@
                 }
 
                 if (track.actual_path && track.actual_path.length > 0) {
-                    L.polyline([center, ...track.actual_path], { color: '#00bfff', weight: 4, opacity: 0.75 }).addTo(vectorsLayer);
+                    let fullPath = [center, ...track.actual_path];
+                    L.polyline(fullPath, { color: '#00bfff', weight: 4, opacity: 0.75 }).addTo(vectorsLayer);
                 }
 
-                let marker = L.marker([center[0], center[1]], {
-                    icon: L.divIcon({ className: 'centroid-pulse', iconSize: [14, 14], iconAnchor: [7, 7] })
-                }).addTo(vectorsLayer);
+                let centroidIcon = L.divIcon({
+                    className: 'centroid-pulse',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(vectorsLayer);
                 marker.on('click', () => open3DViewer(track));
 
                 if (track.forecast_path && track.forecast_path.length > 0) {
@@ -313,7 +353,7 @@
             rotY = 0.0; rotX = 0.5; isWireframeMode = false;
             document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
             document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
-            document.getElementById('modal-cell-details').innerText = "Vel: " + track.speed_kmh + " km/h | VIL: " + track.vil;
+            document.getElementById('modal-cell-details').innerText = "Vel: " + track.speed_kmh + " km/h | VIL: " + track.vil + " | Top: " + track.echo_top + " km";
             document.getElementById('viewer-3d-modal').style.display = 'flex';
             render3D();
         }
@@ -375,7 +415,7 @@
             let matrix = currentTrack.grid_matrix || [];
             let rows = matrix.length;
             let cols = rows > 0 ? matrix[0].length : 0;
-            let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
@@ -406,7 +446,7 @@
 
             columnsToDraw.forEach(col => {
                 ctx.fillStyle = col.color;
-                ctx.strokeStyle = '#000';
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
@@ -427,7 +467,7 @@
             let matrix = currentTrack.grid_matrix || [];
             let rows = matrix.length;
             let cols = rows > 0 ? matrix[0].length : 0;
-            let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
@@ -446,7 +486,8 @@
                     let h_px = val * scale * 0.75;
 
                     columnsToDraw.push({
-                        depth: depth, px_base: px_base, py_base: py_base,
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
                         px_top: px_base, py_top: py_base - h_px, h_px: h_px
                     });
                 }
@@ -465,14 +506,14 @@
                 ctx.stroke();
             });
 
-            let scanY = cy - 60 + Math.sin(scanAngle * 2) * 80;
+            let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
             ctx.strokeStyle = '#00ffcc';
             ctx.lineWidth = 2;
             ctx.shadowColor = '#00ffcc';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.moveTo(cx - 90, scanY);
-            ctx.lineTo(cx + 90, scanY);
+            ctx.moveTo(cx - 100, scanY);
+            ctx.lineTo(cx + 100, scanY);
             ctx.stroke();
             ctx.shadowBlur = 0;
 
