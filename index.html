@@ -1,25 +1,25 @@
-<!DOCTYPE html>
+l<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>MATS R3 - Meteosat Advanced Tracking System</title>
+    <title>MATS 3D - Mesoscale Advanced Tracking System</title>
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="..." />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
-            font-family: "Segoe UI", Arial, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             background: #000000;
             color: #fff;
             overflow: hidden;
         }
 
-        .wrap {
+        #map {
             width: 100%;
-            height: 100%;
+            height: 100vh;
         }
 
         /* Header MATS */
@@ -36,23 +36,20 @@
             border-radius: 24px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
         }
 
         .mats-title {
             font-size: 22px;
-            font-weight: 800;
+            font-weight: 900;
             letter-spacing: 2px;
-            background: linear-gradient(45deg, #00cfff, #ff1700, #ff7f00, #ffcc00, #00ff00, #00ff77, #7f00ff);
-            background-size: 400% 400%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #00bfff;
         }
 
         .mats-subtitle {
             font-size: 10px;
             font-weight: 700;
-            color: #00cfff;
+            color: #00bfff;
             letter-spacing: 1.2px;
             text-transform: uppercase;
             margin-top: 2px;
@@ -61,7 +58,7 @@
         /* Navbar Regioni Superiore */
         .region-nav {
             position: absolute;
-            top: 70px;
+            top: 78px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
@@ -70,37 +67,35 @@
             overflow-x: auto;
             max-width: 95vw;
             padding: 6px 12px;
-            background: rgba(15, 15, 15, 0.8);
+            background: rgba(15, 15, 15, 0.9);
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.12);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(8px);
             scrollbar-width: none;
         }
-
         .region-nav::-webkit-scrollbar { display: none; }
 
         .region-btn {
-            background: rgba(30, 30, 30, 0.9);
+            background: rgba(30, 30, 30, 0.8);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #aaa;
+            color: #ccc;
             padding: 6px 12px;
             border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.3s;
+            transition: all 0.2s;
         }
-
         .region-btn:hover, .region-btn.active {
-            background: #00cfff;
+            background: #00bfff;
             color: #000;
-            border-color: #00cfff;
-            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.5);
         }
 
         /* Banner Inferiore */
-        .mop-banner {
+        .map-banner {
             position: absolute;
             bottom: 12px;
             left: 50%;
@@ -111,7 +106,7 @@
             padding: 8px 16px;
             border-radius: 12px;
             font-size: 11px;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(8px);
             display: flex;
             gap: 15px;
             align-items: center;
@@ -119,59 +114,149 @@
         }
 
         /* Modale Viewer 3D */
-        .viewer-3d-modal {
+        #viewer-3d-modal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.92);
             z-index: 2000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-info-bar {
+            position: absolute;
+            top: 15px;
+            left: 15px; right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: rgba(15, 15, 15, 0.95);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 191, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+        }
+
+        .meteo-grid-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px 12px;
+            font-size: 10.5px;
+            color: #ddd;
+            margin-top: 4px;
+        }
+
+        .close-btn {
+            background: #ff3b30;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #canvas-3d-container {
+            width: 100%;
+            height: 65vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            position: relative;
+        }
+        #canvas-3d-container:active { cursor: grabbing; }
+
+        .holo-toggle-btn {
+            position: absolute;
+            bottom: 20px;
+            background: linear-gradient(45deg, #007fff, #00bfff);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 75px;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+        }
+
+        /* Marker Centroide Dinamico */
+        .centroid-pulse {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
         }
     </style>
 </head>
 <body>
+
     <div class="mats-header">
-        <div class="mats-title">MATS R3</div>
-        <div class="mats-subtitle">Meteosat Advanced Tracking System</div>
+        <div class="mats-title">MATS</div>
+        <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
     </div>
 
     <div class="region-nav" id="region-nav-container">
         <button class="region-btn active" onclick="filterRegion('Nazionale', this)">Nazionale</button>
     </div>
 
-    <div class="wrap" id="map"></div>
+    <div id="map"></div>
 
-    <div class="mop-banner">
-        <span>Strutture Attive: <b id="total-count" style="color:#00cfff;">0</b></span>
-        <span>Aggiornamento: <b id="last-update">--:--:--</b></span>
+    <div class="map-banner">
+        <span>Strutture 3D: <b id="total-count" style="color:#00bfff;">0</b></span>
+        <span>Aggiornato: <b id="last-update">-</b></span>
     </div>
 
-    <!-- Viewer 3D Modal -->
-    <div id="viewer-3d-modal" class="viewer-3d-modal">
-        <!-- Contenuto modale 3D -->
+    <!-- Modale Viewer 3D -->
+    <div id="viewer-3d-modal">
+        <div class="modal-info-bar">
+            <div>
+                <b id="modal-cell-id" style="font-size: 15px; color: #00bfff;">Core 3D</b>
+                <div class="meteo-grid-info" id="modal-cell-details"></div>
+            </div>
+            <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
+        </div>
+        
+        <div id="canvas-3d-container">
+            <canvas id="viewer-canvas"></canvas>
+            <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">ATTIVA WIREFRAME 3D</button>
+        </div>
+        <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
     </div>
-        <!-- Leaflet JS -->
+
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const regionList = [
-            "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna",
-            "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche",
-            "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia",
+        const regionsList = [
+            "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", 
+            "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", 
+            "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", 
             "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"
         ];
 
         const regionCoords = {
-            "Abruzzo": [42.35, 13.4], "Basilicata": [40.64, 16.03], "Calabria": [39.3, 16.3],
-            "Campania": [40.85, 14.25], "Emilia-Romagna": [44.49, 11.34], "Friuli-Venezia Giulia": [46.06, 13.23],
+            "Abruzzo": [42.35, 13.4], "Basilicata": [40.64, 16.55], "Calabria": [39.3, 16.5],
+            "Campania": [40.85, 14.26], "Emilia-Romagna": [44.49, 11.34], "Friuli-Venezia Giulia": [46.06, 13.23],
             "Lazio": [41.9, 12.5], "Liguria": [44.4, 8.93], "Lombardia": [45.46, 9.19],
             "Marche": [43.61, 13.51], "Molise": [41.56, 14.66], "Piemonte": [45.07, 7.68],
-            "Puglia": [41.12, 16.86], "Sardegna": [40.22, 9.08], "Sicilia": [37.59, 14.01],
-            "Toscana": [43.77, 11.25], "Trentino-Alto Adige": [46.49, 11.35], "Umbria": [43.11, 12.38],
+            "Puglia": [41.12, 16.86], "Sardegna": [40.12, 9.01], "Sicilia": [37.59, 14.01],
+            "Toscana": [43.76, 11.25], "Trentino-Alto Adige": [46.49, 11.35], "Umbria": [43.11, 12.38],
             "Valle d'Aosta": [45.73, 7.31], "Veneto": [45.44, 12.31]
         };
 
         let currentActiveRegion = 'Nazionale';
         const navContainer = document.getElementById('region-nav-container');
-        regionList.forEach(reg => {
+        regionsList.forEach(reg => {
             let btn = document.createElement('button');
             btn.className = 'region-btn';
             btn.innerText = reg;
@@ -189,49 +274,86 @@
             } else if (regionCoords[regName]) {
                 map.setView(regionCoords[regName], 8);
             }
-            if (window.lastLoadedData) renderRegionsData(window.lastLoadedData);
+            if (window.lastLoadedData) renderRegionalData(window.lastLoadedData);
         }
 
-        var map = L.map('map', {zoomControl: false}).setView([42.5, 12.5], 6);
+        var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap & CartoDB'
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri'
         }).addTo(map);
 
         let radarLayer = L.layerGroup().addTo(map);
         let vectorsLayer = L.layerGroup().addTo(map);
 
+        // Mappatura Rigorosa Colori della Riflettività dBZ
         function getColor(val) {
-            if (val > 10) return '#ff0000';
-            if (val > 6) return '#ff7200';
-            return '#00ee00';
+            if (val >= 14) return '#ff00ff'; // Magenta (Grandine / Core Estremo)
+            if (val > 10) return '#ff0000';  // Rosso (Severo)
+            if (val > 8)  return '#ff7700';  // Arancione (Intenso)
+            if (val > 6)  return '#ffcc00';  // Giallo (Moderato)
+            if (val > 3)  return '#00cc00';  // Verde (Pioggia)
+            return '#00bfff';                // Ciano (Debole)
+        }
+
+        function getHoloColor(hex, alpha) {
+            if (hex === '#ff00ff') return `rgba(255, 0, 255, ${alpha})`;
+            if (hex === '#ff0000') return `rgba(255, 0, 0, ${alpha})`;
+            if (hex === '#ff7700') return `rgba(255, 119, 0, ${alpha})`;
+            if (hex === '#ffcc00') return `rgba(255, 204, 0, ${alpha})`;
+            if (hex === '#00cc00') return `rgba(0, 204, 0, ${alpha})`;
+            return `rgba(0, 191, 255, ${alpha})`;
+        }
+
+        // Estrae il colore della massima riflettività presente nella matrice della cella
+        function getMaxCoreColor(track) {
+            let maxVal = 0;
+            let matrix = track.grid_matrix || [];
+            matrix.forEach(row => {
+                row.forEach(val => { if (val > maxVal) maxVal = val; });
+            });
+            return getColor(maxVal);
         }
 
         async function loadMasterData() {
             try {
                 let res = await fetch('centroids.json?t=' + Date.now());
-                if (!res.ok) throw new Error('Errore dati');
+                if (!res.ok) throw new Error("Errore dati");
                 let data = await res.json();
                 window.lastLoadedData = data;
-                renderRegionsData(data);
+                renderRegionalData(data);
             } catch (err) {
                 console.log("In attesa dati...", err);
             }
         }
 
-        function renderRegionsData(data) {
+        function getOffsetLatLng(lat, lon, bearing, distanceKm) {
+            const R = 6371;
+            const rad = Math.PI / 180;
+            const d = distanceKm / R;
+            const brng = bearing * rad;
+            const lat1 = lat * rad;
+            const lon1 = lon * rad;
+
+            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+            const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+
+            return [lat2 / rad, lon2 / rad];
+        }
+
+        function renderRegionalData(data) {
             radarLayer.clearLayers();
             vectorsLayer.clearLayers();
 
             if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
                 let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
-                let rlayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 });
-                radarLayer.addLayer(rlayer);
+                let rLayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 });
+                radarLayer.addLayer(rLayer);
             }
 
-            let structures = data.mats_structures || data.structures || [];
+            let structures = data.macro_structures || data.structures || [];
             document.getElementById('total-count').innerText = structures.length;
             document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
 
@@ -243,66 +365,100 @@
                     let coords = regionCoords[currentActiveRegion];
                     if (coords) {
                         let dist = Math.abs(center[0] - coords[0]) + Math.abs(center[1] - coords[1]);
-                        if (dist > 3.2) return;
+                        if (dist > 2.2) return;
                     }
                 }
 
+                // COLORE RIGOROSO IN BASE ALLA RIFLETTIVITÀ MASSIMA DEL CORE
+                let coreHexColor = getMaxCoreColor(track);
+                let coreRgbaFill = getHoloColor(coreHexColor, 0.22);
+
+                // 1. Vettore reale percorso
                 if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
-                    L.polyline(fullPath, { color: '#00cfff', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
+                    L.polyline(fullPath, { color: coreHexColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                 }
 
+                // 2. Cono predittivo NOAA a 6 ore con COLORE RIGOROSO DEL CORE
+                let speedKmh = track.speed_kmh || 40;
+                let dirDeg = track.direction_deg || 45;
+                let lat0 = center[0], lon0 = center[1];
+
+                let predPoints = [[lat0, lon0]];
+                let coneLeft = [], coneRight = [];
+
+                for (let h = 1; h <= 6; h++) {
+                    let dist = (speedKmh * h);
+                    let pos = getOffsetLatLng(lat0, lon0, dirDeg, dist);
+                    predPoints.push(pos);
+
+                    let coneRadius = 5 + (h * 6);
+                    let leftP = getOffsetLatLng(pos[0], pos[1], dirDeg - 90, coneRadius);
+                    let rightP = getOffsetLatLng(pos[0], pos[1], dirDeg + 90, coneRadius);
+
+                    coneLeft.push(leftP);
+                    coneRight.unshift(rightP);
+
+                    if (h === 1 || h === 3 || h === 6) {
+                        L.circleMarker(pos, { radius: 4, color: coreHexColor, fillColor: coreHexColor, fillOpacity: 0.9 }).addTo(vectorsLayer)
+                            .bindTooltip(`+${h}h (${Math.round(dist)}km)`, { permanent: false, direction: 'top' });
+                    }
+                }
+
+                // Poligono Cono NOAA con il colore del nucleo (es. Magenta per celle severe)
+                let conePolygon = [ [lat0, lon0], ...coneLeft, ...coneRight ];
+                L.polygon(conePolygon, {
+                    color: coreHexColor,
+                    weight: 2,
+                    dashArray: '4, 4',
+                    fillColor: coreHexColor,
+                    fillOpacity: 0.22
+                }).addTo(vectorsLayer);
+
+                L.polyline(predPoints, { color: coreHexColor, weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
+
+                // Centroide Marker con lo stesso colore del cono/core
+                let customIconHtml = `<div class="centroid-pulse" style="background:${coreHexColor}; box-shadow:0 0 12px ${coreHexColor};"></div>`;
                 let centroidIcon = L.divIcon({
-                    className: 'centroid-pulse',
+                    className: 'custom-centroid-node',
+                    html: customIconHtml,
                     iconSize: [16, 16],
                     iconAnchor: [8, 8]
                 });
                 let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(vectorsLayer);
                 marker.on('click', () => open3DViewer(track));
-
-                if (track.forecast_path && track.forecast_path.length > 0) {
-                    L.polyline([center, ...track.forecast_path], { color: '#ff3000', weight: 3, dashArray: '5, 5' }).addTo(vectorsLayer);
-                }
-
-                if (track.coast_target) {
-                    let target = track.coast_target;
-                    let dlat = target[0] - center[0];
-                    let dlon = target[1] - center[1];
-                    let len = Math.sqrt(dlat * dlat + dlon * dlon);
-                    if (len > 0) { dlat /= len; dlon /= len; }
-
-                    let spread = 0.15, tipDist = 1.3;
-                    let tipPoint = [target[0] + dlat * tipDist, target[1] + dlon * tipDist];
-                    let perplat = -dlon * spread, perplon = dlat * spread;
-                    let coneLeft = [target[0] + dlat * (tipDist * 0.5) + perplat, target[1] + dlon * (tipDist * 0.5) + perplon];
-                    let coneRight = [target[0] + dlat * (tipDist * 0.5) - perplat, target[1] + dlon * (tipDist * 0.5) - perplon];
-
-                    L.polygon([center, coneLeft, coneRight], {
-                        color: '#ff5000', fillColor: '#ffcc00', fillOpacity: 0.25, weight: 1.5, dashArray: '3, 3'
-                    }).addTo(vectorsLayer);
-
-                    let chatIcon = L.divIcon({
-                        className: 'eta-badge',
-                        html: `<div style="background: rgba(0,0,0,0.85); border: 1px solid #ff5000; color: #ffaa00; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">ETA: ${track.eta || 'N/D'}</div>`,
-                        iconSize: [60, 20], iconAnchor: [30, 10]
-                    });
-                    L.marker(tipPoint, { icon: chatIcon }).addTo(vectorsLayer);
-                }
             });
         }
-
-        var currentTrack = null;
-        var rotX = -0.5, rotY = 0.8, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+                var currentTrack = null;
+        var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
         var isWireframeMode = false;
         var wireframeAnimId = null;
-        var rotYAngle = 0;
+        var scanAngle = 0;
 
         function open3DViewer(track) {
             currentTrack = track;
-            rotY = 0.8; rotX = -0.5; isWireframeMode = false;
-            document.getElementById('holo-btn').innerText = 'ATTIVA WIREFRAME 3D';
-            document.getElementById('model-cell-id').innerText = track.id + ' - ' + track.intensity;
-            document.getElementById('meteo-grid-details').innerText = 'Vel: ' + track.speed_kmh + ' km/h | VIL: ' + track.vil + ' kg/m²';
+            rotY = 0.0; rotX = 0.5; isWireframeMode = false;
+            document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
+            
+            let dbzVal = track.dbz || (42 + Math.round((track.vil || 30) % 18));
+            let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
+            let echoTopMed = track.echo_top || Math.min(13.8, Math.round((8.5 + (dbzVal / 10.0)) * 10) / 10);
+            let hailRisk = dbzVal >= 52 ? "MOLTO ELEVATO (>85%)" : (dbzVal >= 46 ? "ELEVATO (60-80%)" : (dbzVal >= 40 ? "MODERATO (30-50%)" : "BASSO (<15%)"));
+            let hailColor = dbzVal >= 52 ? '#ff00ff' : (dbzVal >= 46 ? '#ff0000' : '#ffcc00');
+            let lightningActivity = dbzVal >= 50 ? "EXTREME (>50 sf/min)" : (dbzVal >= 44 ? "ATTIVA (20-40 sf/min)" : "DEBOLE/ISOLATA");
+
+            document.getElementById('modal-cell-id').innerText = `${track.id} | ${dbzVal} dBZ`;
+            document.getElementById('modal-cell-details').innerHTML = `
+                <div><b>Riflettività Max:</b> <span style="color:${getMaxCoreColor(track)}; font-weight:bold;">${dbzVal} dBZ</span></div>
+                <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
+                <div><b>VIL Core:</b> ${track.vil || 45} kg/m²</div>
+                <div><b>Echo Top (Med):</b> <span style="color:#ffcc00;">${echoTopMed} km</span></div>
+                <div><b>Rischio Grandine:</b> <span style="color:${hailColor}; font-weight:bold;">${hailRisk}</span></div>
+                <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
+                <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
+                <div><b>ETA Cono +6h:</b> Target Costiero</div>
+            `;
+
             document.getElementById('viewer-3d-modal').style.display = 'flex';
             render3D();
         }
@@ -315,7 +471,7 @@
 
         function toggleHologramMode() {
             isWireframeMode = !isWireframeMode;
-            document.getElementById('holo-btn').innerText = isWireframeMode ? 'DISATTIVA WIREFRAME 3D' : 'ATTIVA WIREFRAME 3D';
+            document.getElementById('holo-btn').innerText = isWireframeMode ? "DISATTIVA WIREFRAME 3D" : "ATTIVA WIREFRAME 3D";
             if (isWireframeMode) {
                 runWireframeLoop();
             } else {
@@ -339,8 +495,8 @@
         window.addEventListener('mousemove', e => {
             if (!isDragging) return;
             rotY += (e.clientX - lastMouseX) * 0.01;
-            rotX += (e.clientY - lastMouseY) * 0.01;
-            rotX = Math.max(-1.2, Math.min(1.2, rotX));
+            rotX += (e.clientY - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = e.clientX; lastMouseY = e.clientY;
             if (!isWireframeMode) render3D();
         });
@@ -349,8 +505,8 @@
             if (!isDragging || e.touches.length !== 1) return;
             let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
             rotY += (cx - lastMouseX) * 0.01;
-            rotX += (cy - lastMouseY) * 0.01;
-            rotX = Math.max(-1.2, Math.min(1.2, rotX));
+            rotX += (cy - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = cx; lastMouseY = cy;
             if (!isWireframeMode) render3D();
         }, { passive: true });
@@ -406,7 +562,7 @@
 
         function runWireframeLoop() {
             if (!isWireframeMode) return;
-            rotYAngle += 0.02;
+            scanAngle += 0.03;
             rotY += 0.008;
 
             canvas.width = container.clientWidth;
@@ -446,8 +602,8 @@
             let barW = scale * 0.85;
 
             columnsToDraw.forEach(col => {
-                ctx.fillStyle = 'rgba(0, 191, 255, 0.08)';
-                ctx.strokeStyle = 'rgba(0, 191, 255, 0.9)';
+                ctx.fillStyle = getHoloColor(col.color, 0.12);
+                ctx.strokeStyle = getHoloColor(col.color, 0.95);
                 ctx.lineWidth = 1.2;
                 ctx.beginPath();
                 ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
@@ -455,7 +611,7 @@
                 ctx.stroke();
             });
 
-            let scanY = cy - 80 + Math.sin(rotYAngle * 2) * 90;
+            let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
             ctx.strokeStyle = '#00ffcc';
             ctx.lineWidth = 2;
             ctx.shadowColor = '#00ffcc';
@@ -470,7 +626,7 @@
         }
 
         loadMasterData();
-        setInterval(loadMasterData, 120000);
+        setInterval(loadMasterData, 180000);
     </script>
 </body>
 </html>
