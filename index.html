@@ -180,6 +180,8 @@
             border-radius: 20px;
             border: 1px solid rgba(0, 191, 255, 0.3);
             backdrop-filter: blur(8px);
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .mode-btn {
@@ -249,13 +251,14 @@
                 <button class="mode-btn active" id="btn-mode-voxel" onclick="set3DMode('voxel')">VOXEL 3D</button>
                 <button class="mode-btn" id="btn-mode-holo" onclick="set3DMode('holo')">HOLO WIREFRAME</button>
                 <button class="mode-btn" id="btn-mode-vol" onclick="set3DMode('volumetric')">NUBE VOLUMETRICA</button>
+                <button class="mode-btn" id="btn-mode-photoreal" onclick="set3DMode('photoreal')">FOTOREALISTICO</button>
             </div>
         </div>
         <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
+        <script>
         const regionsList = [
             "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", 
             "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", 
@@ -333,7 +336,8 @@
             });
             return getColor(maxVal);
         }
-                async function loadMasterData() {
+
+        async function loadMasterData() {
             try {
                 let res = await fetch('centroids.json?t=' + Date.now());
                 if (!res.ok) throw new Error("Errore dati");
@@ -439,12 +443,11 @@
                 marker.on('click', () => open3DViewer(track));
             });
         }
-
-        var currentTrack = null;
+                    var currentTrack = null;
         var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
         var isWireframeMode = false;
         var wireframeAnimId = null;
-        var active3DViewMode = 'voxel'; // 'voxel', 'holo', 'volumetric'
+        var active3DViewMode = 'voxel'; // 'voxel', 'holo', 'volumetric', 'photoreal'
         var scanAngle = 0;
 
         function open3DViewer(track) {
@@ -487,6 +490,8 @@
             document.getElementById('btn-mode-voxel').classList.remove('active');
             document.getElementById('btn-mode-holo').classList.remove('active');
             document.getElementById('btn-mode-vol').classList.remove('active');
+            let btnPhoto = document.getElementById('btn-mode-photoreal');
+            if(btnPhoto) btnPhoto.classList.remove('active');
 
             if (mode === 'voxel') {
                 isWireframeMode = false;
@@ -500,6 +505,10 @@
                 isWireframeMode = false;
                 document.getElementById('btn-mode-vol').classList.add('active');
                 render3D();
+            } else if (mode === 'photoreal') {
+                isWireframeMode = false;
+                if(btnPhoto) btnPhoto.classList.add('active');
+                renderPhotorealisticCloudMode();
             }
         }
 
@@ -521,7 +530,13 @@
             rotX += (e.clientY - lastMouseY) * 0.006;
             rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = e.clientX; lastMouseY = e.clientY;
-            if (!isWireframeMode) render3D();
+            if (!isWireframeMode) {
+                if (active3DViewMode === 'photoreal') {
+                    renderPhotorealisticCloudMode();
+                } else {
+                    render3D();
+                }
+            }
         });
 
         window.addEventListener('touchmove', e => {
@@ -531,13 +546,25 @@
             rotX += (cy - lastMouseY) * 0.006;
             rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = cx; lastMouseY = cy;
-            if (!isWireframeMode) render3D();
+            if (!isWireframeMode) {
+                if (active3DViewMode === 'photoreal') {
+                    renderPhotorealisticCloudMode();
+                } else {
+                    render3D();
+                }
+            }
         }, { passive: true });
-                function render3D() {
+
+        function render3D() {
             if (!currentTrack) return;
 
             if (active3DViewMode === 'volumetric') {
                 renderVolumetricCloudMode();
+                return;
+            }
+
+            if (active3DViewMode === 'photoreal') {
+                renderPhotorealisticCloudMode();
                 return;
             }
 
@@ -589,7 +616,7 @@
             });
         }
 
-        // 2. VISTA NUBE VOLUMETRICA (Colonne traslucide e core luminosi nitidi, senza sgranature)
+        // 2. VISTA NUBE VOLUMETRICA
         function renderVolumetricCloudMode() {
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
@@ -628,7 +655,6 @@
             let barW = scale * 0.85;
 
             columnsToDraw.forEach(col => {
-                // Corpo colonna semitrasparente (struttura 3D pulita)
                 ctx.fillStyle = getHoloColor(col.color, 0.35);
                 ctx.strokeStyle = getHoloColor(col.color, 0.7);
                 ctx.lineWidth = 1;
@@ -637,7 +663,6 @@
                 ctx.fill();
                 ctx.stroke();
 
-                // Core superiore luminoso ad alta definizione
                 ctx.fillStyle = col.color;
                 ctx.shadowColor = col.color;
                 ctx.shadowBlur = 8;
@@ -648,7 +673,78 @@
             });
         }
 
-        // 3. VISTA HOLO WIREFRAME CON LASER SCANNER
+        // 4. VISTA FOTOREALISTICA (Anti-Ciambella con Gradiente Radiale e Blending Additivo)
+        function renderPhotorealisticCloudMode() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.globalCompositeOperation = 'screen';
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let particlesToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    
+                    for (let h_step = 0; h_step < val; h_step += 1.5) {
+                        let px = cx + (x * cosY - y * sinY) * scale;
+                        let py = (cy + (x * sinY + y * cosY) * sinX * scale) - (h_step * scale * 0.4);
+                        let depth = (x * sinY + y * cosY) * cosX;
+
+                        particlesToDraw.push({
+                            val: val, h_step: h_step, depth: depth,
+                            x: px, y: py
+                        });
+                    }
+                }
+            }
+
+            particlesToDraw.sort((a, b) => a.depth - b.depth);
+
+            particlesToDraw.forEach(p => {
+                let radius = scale * 1.2;
+                let gradient = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, radius);
+
+                if (p.val >= 14) {
+                    gradient.addColorStop(0, 'rgba(255, 0, 255, 0.75)');
+                    gradient.addColorStop(0.4, 'rgba(220, 50, 200, 0.35)');
+                    gradient.addColorStop(1, 'rgba(150, 0, 150, 0)');
+                } else if (p.val >= 11) {
+                    gradient.addColorStop(0, 'rgba(255, 60, 60, 0.7)');
+                    gradient.addColorStop(0.5, 'rgba(200, 50, 50, 0.3)');
+                    gradient.addColorStop(1, 'rgba(100, 0, 0, 0)');
+                } else if (p.val >= 6) {
+                    gradient.addColorStop(0, 'rgba(255, 200, 50, 0.5)');
+                    gradient.addColorStop(0.5, 'rgba(200, 150, 0, 0.2)');
+                    gradient.addColorStop(1, 'rgba(100, 80, 0, 0)');
+                } else {
+                    gradient.addColorStop(0, 'rgba(230, 240, 255, 0.35)');
+                    gradient.addColorStop(0.6, 'rgba(180, 200, 220, 0.12)');
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                }
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // 3. VISTA HOLO WIREFRAME
         function runWireframeLoop() {
             if (!isWireframeMode) return;
             scanAngle += 0.03;
