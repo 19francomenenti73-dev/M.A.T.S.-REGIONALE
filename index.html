@@ -453,12 +453,7 @@
         function open3DViewer(track) {
             currentTrack = track;
             rotY = 0.0; rotX = 0.5;
-            let modal = document.getElementById('viewer-3d-modal');
-            modal.style.display = 'flex';
-            
-            setTimeout(() => {
-                set3DMode('voxel');
-            }, 80);
+            set3DMode('voxel');
 
             let dbzVal = track.dbz || (42 + Math.round((track.vil || 30) % 18));
             let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
@@ -478,6 +473,8 @@
                 <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
                 <div><b>ETA Cono +6h:</b> Target Costiero</div>
             `;
+
+            document.getElementById('viewer-3d-modal').style.display = 'flex';
         }
 
         function close3DViewer() {
@@ -490,27 +487,23 @@
             active3DViewMode = mode;
             if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
 
-            let btnVoxel = document.getElementById('btn-mode-voxel');
-            let btnHolo = document.getElementById('btn-mode-holo');
-            let btnVol = document.getElementById('btn-mode-vol');
+            document.getElementById('btn-mode-voxel').classList.remove('active');
+            document.getElementById('btn-mode-holo').classList.remove('active');
+            document.getElementById('btn-mode-vol').classList.remove('active');
             let btnPhoto = document.getElementById('btn-mode-photoreal');
-
-            if(btnVoxel) btnVoxel.classList.remove('active');
-            if(btnHolo) btnHolo.classList.remove('active');
-            if(btnVol) btnVol.classList.remove('active');
             if(btnPhoto) btnPhoto.classList.remove('active');
 
             if (mode === 'voxel') {
                 isWireframeMode = false;
-                if(btnVoxel) btnVoxel.classList.add('active');
+                document.getElementById('btn-mode-voxel').classList.add('active');
                 render3D();
             } else if (mode === 'holo') {
                 isWireframeMode = true;
-                if(btnHolo) btnHolo.classList.add('active');
+                document.getElementById('btn-mode-holo').classList.add('active');
                 runWireframeLoop();
             } else if (mode === 'volumetric') {
                 isWireframeMode = false;
-                if(btnVol) btnVol.classList.add('active');
+                document.getElementById('btn-mode-vol').classList.add('active');
                 render3D();
             } else if (mode === 'photoreal') {
                 isWireframeMode = false;
@@ -562,16 +555,6 @@
             }
         }, { passive: true });
 
-        function updateCanvasSize() {
-            let rect = container.getBoundingClientRect();
-            let w = rect.width > 0 ? rect.width : (container.clientWidth || window.innerWidth);
-            let h = rect.height > 0 ? rect.height : (container.clientHeight || window.innerHeight * 0.65);
-            if (canvas.width !== w || canvas.height !== h) {
-                canvas.width = w;
-                canvas.height = h;
-            }
-        }
-
         function render3D() {
             if (!currentTrack) return;
 
@@ -585,7 +568,9 @@
                 return;
             }
 
-            updateCanvasSize();
+            // 1. VISTA VOXEL ORIGINALE
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             let matrix = currentTrack.grid_matrix || [];
@@ -631,8 +616,10 @@
             });
         }
 
+        // 2. VISTA NUBE VOLUMETRICA
         function renderVolumetricCloudMode() {
-            updateCanvasSize();
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             let matrix = currentTrack.grid_matrix || [];
@@ -686,22 +673,22 @@
             });
         }
 
-        // MOTORE FOTOREALISTICO CORRETTO (Visibile, Organico e Volumetrico)
+        // 4. VISTA FOTOREALISTICA (Anti-Ciambella con Gradiente Radiale e Blending Additivo)
         function renderPhotorealisticCloudMode() {
-            updateCanvasSize();
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (!currentTrack || !currentTrack.grid_matrix) return;
+            ctx.globalCompositeOperation = 'screen';
 
-            let matrix = currentTrack.grid_matrix;
+            let matrix = currentTrack.grid_matrix || [];
             let rows = matrix.length;
             let cols = rows > 0 ? matrix[0].length : 0;
             let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-
-            let columnsToDraw = [];
+            let particlesToDraw = [];
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -710,59 +697,61 @@
 
                     let x = (c - cols / 2 + 0.5) * 1.0;
                     let y = (r - rows / 2 + 0.5) * 1.0;
-                    let px_base = cx + (x * cosY - y * sinY) * scale;
-                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
-                    let depth = (x * sinY + y * cosY) * cosX;
-                    let h_px = val * scale * 0.75;
+                    
+                    for (let h_step = 0; h_step < val; h_step += 1.5) {
+                        let px = cx + (x * cosY - y * sinY) * scale;
+                        let py = (cy + (x * sinY + y * cosY) * sinX * scale) - (h_step * scale * 0.4);
+                        let depth = (x * sinY + y * cosY) * cosX;
 
-                    columnsToDraw.push({
-                        val: val, color: getColor(val), depth: depth,
-                        px_base: px_base, py_base: py_base, h_px: h_px
-                    });
+                        particlesToDraw.push({
+                            val: val, h_step: h_step, depth: depth,
+                            x: px, y: py
+                        });
+                    }
                 }
             }
 
-            // Ordinamento in profondità (Painter's algorithm)
-            columnsToDraw.sort((a, b) => a.depth - b.depth);
-            let baseRadius = scale * 0.9;
+            particlesToDraw.sort((a, b) => a.depth - b.depth);
 
-            columnsToDraw.forEach(col => {
-                let steps = 5; // fette verticali per ogni colonna
-                for (let i = 0; i <= steps; i++) {
-                    let progress = i / steps; // da 0 (base) a 1 (cima)
-                    let p_x = col.px_base;
-                    let p_y = col.py_base - (col.h_px * progress);
-                    let radius = baseRadius * (0.7 + (progress * 0.3));
+            particlesToDraw.forEach(p => {
+                let radius = scale * 1.2;
+                let gradient = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, radius);
 
-                    let grad = ctx.createRadialGradient(p_x, p_y, 1, p_x, p_y, radius);
-                    let baseColor = col.color;
-
-                    if (progress > 0.6) {
-                        // Core superiore luminoso / Incudine
-                        grad.addColorStop(0, baseColor);
-                        grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.75)');
-                        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                    } else {
-                        // Corpo centrale denso e organico
-                        grad.addColorStop(0, baseColor);
-                        grad.addColorStop(0.5, getHoloColor(baseColor, 0.65));
-                        grad.addColorStop(1, getHoloColor(baseColor, 0));
-                    }
-
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(p_x, p_y, radius, 0, Math.PI * 2);
-                    ctx.fill();
+                if (p.val >= 14) {
+                    gradient.addColorStop(0, 'rgba(255, 0, 255, 0.75)');
+                    gradient.addColorStop(0.4, 'rgba(220, 50, 200, 0.35)');
+                    gradient.addColorStop(1, 'rgba(150, 0, 150, 0)');
+                } else if (p.val >= 11) {
+                    gradient.addColorStop(0, 'rgba(255, 60, 60, 0.7)');
+                    gradient.addColorStop(0.5, 'rgba(200, 50, 50, 0.3)');
+                    gradient.addColorStop(1, 'rgba(100, 0, 0, 0)');
+                } else if (p.val >= 6) {
+                    gradient.addColorStop(0, 'rgba(255, 200, 50, 0.5)');
+                    gradient.addColorStop(0.5, 'rgba(200, 150, 0, 0.2)');
+                    gradient.addColorStop(1, 'rgba(100, 80, 0, 0)');
+                } else {
+                    gradient.addColorStop(0, 'rgba(230, 240, 255, 0.35)');
+                    gradient.addColorStop(0.6, 'rgba(180, 200, 220, 0.12)');
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
                 }
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                ctx.fill();
             });
+
+            ctx.globalCompositeOperation = 'source-over';
         }
 
+        // 3. VISTA HOLO WIREFRAME
         function runWireframeLoop() {
             if (!isWireframeMode) return;
             scanAngle += 0.03;
             rotY += 0.008;
 
-            updateCanvasSize();
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             let matrix = currentTrack.grid_matrix || [];
