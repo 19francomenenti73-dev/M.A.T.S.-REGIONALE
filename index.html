@@ -169,18 +169,35 @@ l<!DOCTYPE html>
         }
         #canvas-3d-container:active { cursor: grabbing; }
 
-        .holo-toggle-btn {
+        .mode-selector-bar {
             position: absolute;
             bottom: 20px;
+            display: flex;
+            gap: 6px;
+            z-index: 2005;
+            background: rgba(10, 10, 10, 0.85);
+            padding: 6px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 191, 255, 0.3);
+            backdrop-filter: blur(8px);
+        }
+
+        .mode-btn {
+            background: rgba(30, 30, 30, 0.9);
+            color: #ccc;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
             background: linear-gradient(45deg, #007fff, #00bfff);
             color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.6);
         }
 
         .controls-hint {
@@ -191,7 +208,6 @@ l<!DOCTYPE html>
             text-align: center;
         }
 
-        /* Marker Centroide Dinamico */
         .centroid-pulse {
             width: 16px; height: 16px;
             border-radius: 50%;
@@ -217,7 +233,6 @@ l<!DOCTYPE html>
         <span>Aggiornato: <b id="last-update">-</b></span>
     </div>
 
-    <!-- Modale Viewer 3D -->
     <div id="viewer-3d-modal">
         <div class="modal-info-bar">
             <div>
@@ -229,12 +244,16 @@ l<!DOCTYPE html>
         
         <div id="canvas-3d-container">
             <canvas id="viewer-canvas"></canvas>
-            <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">ATTIVA WIREFRAME 3D</button>
+
+            <div class="mode-selector-bar">
+                <button class="mode-btn active" id="btn-mode-voxel" onclick="set3DMode('voxel')">VOXEL 3D</button>
+                <button class="mode-btn" id="btn-mode-holo" onclick="set3DMode('holo')">HOLO WIREFRAME</button>
+                <button class="mode-btn" id="btn-mode-vol" onclick="set3DMode('volumetric')">NUBE VOLUMETRICA</button>
+            </div>
         </div>
         <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const regionsList = [
@@ -288,14 +307,13 @@ l<!DOCTYPE html>
         let radarLayer = L.layerGroup().addTo(map);
         let vectorsLayer = L.layerGroup().addTo(map);
 
-        // Mappatura Rigorosa Colori della Riflettività dBZ
         function getColor(val) {
-            if (val >= 14) return '#ff00ff'; // Magenta (Grandine / Core Estremo)
-            if (val > 10) return '#ff0000';  // Rosso (Severo)
-            if (val > 8)  return '#ff7700';  // Arancione (Intenso)
-            if (val > 6)  return '#ffcc00';  // Giallo (Moderato)
-            if (val > 3)  return '#00cc00';  // Verde (Pioggia)
-            return '#00bfff';                // Ciano (Debole)
+            if (val >= 14) return '#ff00ff';
+            if (val > 10) return '#ff0000';
+            if (val > 8)  return '#ff7700';
+            if (val > 6)  return '#ffcc00';
+            if (val > 3)  return '#00cc00';
+            return '#00bfff';
         }
 
         function getHoloColor(hex, alpha) {
@@ -307,7 +325,6 @@ l<!DOCTYPE html>
             return `rgba(0, 191, 255, ${alpha})`;
         }
 
-        // Estrae il colore della massima riflettività presente nella matrice della cella
         function getMaxCoreColor(track) {
             let maxVal = 0;
             let matrix = track.grid_matrix || [];
@@ -316,8 +333,7 @@ l<!DOCTYPE html>
             });
             return getColor(maxVal);
         }
-
-        async function loadMasterData() {
+                async function loadMasterData() {
             try {
                 let res = await fetch('centroids.json?t=' + Date.now());
                 if (!res.ok) throw new Error("Errore dati");
@@ -369,17 +385,13 @@ l<!DOCTYPE html>
                     }
                 }
 
-                // COLORE RIGOROSO IN BASE ALLA RIFLETTIVITÀ MASSIMA DEL CORE
                 let coreHexColor = getMaxCoreColor(track);
-                let coreRgbaFill = getHoloColor(coreHexColor, 0.22);
 
-                // 1. Vettore reale percorso
                 if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
                     L.polyline(fullPath, { color: coreHexColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                 }
 
-                // 2. Cono predittivo NOAA a 6 ore con COLORE RIGOROSO DEL CORE
                 let speedKmh = track.speed_kmh || 40;
                 let dirDeg = track.direction_deg || 45;
                 let lat0 = center[0], lon0 = center[1];
@@ -405,7 +417,6 @@ l<!DOCTYPE html>
                     }
                 }
 
-                // Poligono Cono NOAA con il colore del nucleo (es. Magenta per celle severe)
                 let conePolygon = [ [lat0, lon0], ...coneLeft, ...coneRight ];
                 L.polygon(conePolygon, {
                     color: coreHexColor,
@@ -417,7 +428,6 @@ l<!DOCTYPE html>
 
                 L.polyline(predPoints, { color: coreHexColor, weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
 
-                // Centroide Marker con lo stesso colore del cono/core
                 let customIconHtml = `<div class="centroid-pulse" style="background:${coreHexColor}; box-shadow:0 0 12px ${coreHexColor};"></div>`;
                 let centroidIcon = L.divIcon({
                     className: 'custom-centroid-node',
@@ -429,17 +439,19 @@ l<!DOCTYPE html>
                 marker.on('click', () => open3DViewer(track));
             });
         }
-                var currentTrack = null;
+
+        var currentTrack = null;
         var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
         var isWireframeMode = false;
         var wireframeAnimId = null;
+        var active3DViewMode = 'voxel'; // 'voxel', 'holo', 'volumetric'
         var scanAngle = 0;
 
         function open3DViewer(track) {
             currentTrack = track;
-            rotY = 0.0; rotX = 0.5; isWireframeMode = false;
-            document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
-            
+            rotY = 0.0; rotX = 0.5;
+            set3DMode('voxel');
+
             let dbzVal = track.dbz || (42 + Math.round((track.vil || 30) % 18));
             let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
             let echoTopMed = track.echo_top || Math.min(13.8, Math.round((8.5 + (dbzVal / 10.0)) * 10) / 10);
@@ -460,7 +472,6 @@ l<!DOCTYPE html>
             `;
 
             document.getElementById('viewer-3d-modal').style.display = 'flex';
-            render3D();
         }
 
         function close3DViewer() {
@@ -469,13 +480,25 @@ l<!DOCTYPE html>
             currentTrack = null; isWireframeMode = false;
         }
 
-        function toggleHologramMode() {
-            isWireframeMode = !isWireframeMode;
-            document.getElementById('holo-btn').innerText = isWireframeMode ? "DISATTIVA WIREFRAME 3D" : "ATTIVA WIREFRAME 3D";
-            if (isWireframeMode) {
+        function set3DMode(mode) {
+            active3DViewMode = mode;
+            if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+
+            document.getElementById('btn-mode-voxel').classList.remove('active');
+            document.getElementById('btn-mode-holo').classList.remove('active');
+            document.getElementById('btn-mode-vol').classList.remove('active');
+
+            if (mode === 'voxel') {
+                isWireframeMode = false;
+                document.getElementById('btn-mode-voxel').classList.add('active');
+                render3D();
+            } else if (mode === 'holo') {
+                isWireframeMode = true;
+                document.getElementById('btn-mode-holo').classList.add('active');
                 runWireframeLoop();
-            } else {
-                if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+            } else if (mode === 'volumetric') {
+                isWireframeMode = false;
+                document.getElementById('btn-mode-vol').classList.add('active');
                 render3D();
             }
         }
@@ -510,9 +533,15 @@ l<!DOCTYPE html>
             lastMouseX = cx; lastMouseY = cy;
             if (!isWireframeMode) render3D();
         }, { passive: true });
-
-        function render3D() {
+                function render3D() {
             if (!currentTrack) return;
+
+            if (active3DViewMode === 'volumetric') {
+                renderVolumetricCloudMode();
+                return;
+            }
+
+            // VISTA VOXEL ORIGINALE
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -560,6 +589,67 @@ l<!DOCTYPE html>
             });
         }
 
+        // VISTA NUBE VOLUMETRICA (Gradiente radiale)
+        function renderVolumetricCloudMode() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let pointsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let heightLayers = Math.min(5, Math.max(1, Math.round(val / 3)));
+                    for (let h = 0; h < heightLayers; h++) {
+                        let x = (c - cols / 2 + 0.5) * 1.0;
+                        let y = (r - rows / 2 + 0.5) * 1.0;
+                        let zOffset = h * 0.4;
+
+                        let px = cx + (x * cosY - y * sinY) * scale;
+                        let py = cy + ((x * sinY + y * cosY) * sinX - zOffset) * scale;
+                        let depth = (x * sinY + y * cosY) * cosX;
+
+                        let baseColor = getColor(val);
+                        let radius = scale * (0.6 + (val * 0.04) - (h * 0.05));
+                        if (radius < 3) radius = 3;
+
+                        pointsToDraw.push({
+                            x: px, y: py, radius: radius,
+                            color: baseColor, depth: depth,
+                            alpha: Math.max(0.15, 0.8 - (h * 0.15))
+                        });
+                    }
+                }
+            }
+
+            pointsToDraw.sort((a, b) => a.depth - b.depth);
+
+            pointsToDraw.forEach(p => {
+                let grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+                grad.addColorStop(0, getHoloColor(p.color, p.alpha));
+                grad.addColorStop(0.6, getHoloColor(p.color, p.alpha * 0.5));
+                grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.save();
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // VISTA HOLO WIREFRAME
         function runWireframeLoop() {
             if (!isWireframeMode) return;
             scanAngle += 0.03;
