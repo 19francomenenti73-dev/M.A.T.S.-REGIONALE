@@ -290,7 +290,29 @@
         <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
     </div>
 
-    <div class="regions-nav-bar" id="regions-bar"></div>
+    <div class="regions-nav-bar" id="regions-bar">
+        <button class="region-btn active" onclick="selectRegion(this, 'Nazionale')">Nazionale</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Abruzzo')">Abruzzo</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Basilicata')">Basilicata</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Calabria')">Calabria</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Campania')">Campania</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Emilia-Romagna')">Emilia-Romagna</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Friuli-Venezia Giulia')">Friuli-Venezia Giulia</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Lazio')">Lazio</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Liguria')">Liguria</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Lombardia')">Lombardia</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Marche')">Marche</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Molise')">Molise</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Piemonte')">Piemonte</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Puglia')">Puglia</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Sardegna')">Sardegna</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Sicilia')">Sicilia</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Toscana')">Toscana</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Trentino-Alto Adige')">Trentino-Alto Adige</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Umbria')">Umbria</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Valle d\'Aosta')">Valle d'Aosta</button>
+        <button class="region-btn" onclick="selectRegion(this, 'Veneto')">Veneto</button>
+    </div>
 
     <div id="map"></div>
 
@@ -332,14 +354,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
-        const REGIONS_LIST = [
-            "Nazionale", "Abruzzo", "Basilicata", "Calabria", "Campania", 
-            "Emilia-Romagna", "Friuli-Venezia Giulia", "Lazio", "Liguria", 
-            "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", 
-            "Sardegna", "Sicilia", "Toscana", "Trentino-Alto Adige", 
-            "Umbria", "Valle d'Aosta", "Veneto"
-        ];
-
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
@@ -353,22 +367,10 @@
         var vectorsLayer = L.layerGroup().addTo(map);
         var currentSelectedRegion = "Nazionale";
 
-        const barContainer = document.getElementById('regions-bar');
-        REGIONS_LIST.forEach(reg => {
-            let btn = document.createElement('button');
-            btn.className = 'region-btn' + (reg === "Nazionale" ? ' active' : '');
-            btn.innerText = reg;
-            btn.id = 'reg-btn-' + reg.toLowerCase().replace(/[^a-z]/g, '');
-            btn.onclick = () => selectRegion(reg);
-            barContainer.appendChild(btn);
-        });
-
-        function selectRegion(regName) {
+        function selectRegion(btnElement, regName) {
             currentSelectedRegion = regName;
             document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
-            let activeId = 'reg-btn-' + regName.toLowerCase().replace(/[^a-z]/g, '');
-            let activeBtn = document.getElementById(activeId);
-            if (activeBtn) activeBtn.classList.add('active');
+            if (btnElement) btnElement.classList.add('active');
             loadTrackerData();
         }
 
@@ -475,11 +477,12 @@
                             L.marker(target, { icon: etaIcon }).addTo(vectorsLayer);
                         }
                     });
+                                    });
                 })
                 .catch(err => {
-                    console.log('Errore caricamento file JSON regione:', err);
+                    console.log('Errore caricamento dati regione:', err);
                     if (currentSelectedRegion !== "Nazionale") {
-                        selectRegion("Nazionale");
+                        selectRegion(null, "Nazionale");
                     }
                 });
         }
@@ -525,4 +528,130 @@
 
         var canvas = document.getElementById('viewer-canvas');
         var ctx = canvas.getContext('2d');
-        var container = document.getElementById('canva
+        var container = document.getElementById('canvas-3d-container');
+
+        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            rotY += (e.clientX - lastMouseX) * 0.008;
+            rotX += (e.clientY - lastMouseY) * 0.005;
+            rotX = Math.max(0.15, Math.min(0.85, rotX));
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            if (!isHologramActive) render3D();
+        });
+
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
+            }
+        });
+        window.addEventListener('touchend', () => isDragging = false);
+        window.addEventListener('touchmove', e => {
+            if (!isDragging || e.touches.length !== 1) return;
+            rotY += (e.touches[0].clientX - lastMouseX) * 0.008;
+            rotX += (e.touches[0].clientY - lastMouseY) * 0.005;
+            rotX = Math.max(0.15, Math.min(0.85, rotX));
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+            if (!isHologramActive) render3D();
+        });
+
+        function render3D() {
+            if (!currentTrack) return;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+
+            let cx = canvas.width / 2;
+            let cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    if (isHologramActive) {
+                        let dynamicFactor = Math.sin(holoWaveOffset + (r * 0.4) + (c * 0.4));
+                        val = Math.max(1, Math.min(12, Math.round(val + dynamicFactor * 1.8)));
+                    }
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+
+                    let h_px = val * scale * 0.75;
+                    let px_top = px_base;
+                    let py_top = py_base - h_px;
+
+                    columnsToDraw.push({
+                        val: val,
+                        color: getColor(val),
+                        depth: depth,
+                        px_base: px_base,
+                        py_base: py_base,
+                        px_top: px_top,
+                        py_top: py_top,
+                        h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = col.color;
+                ctx.strokeStyle = isHologramActive ? 'rgba(0, 191, 255, 0.9)' : 'rgba(0, 0, 0, 0.7)';
+                ctx.lineWidth = isHologramActive ? 1.5 : 1;
+
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = col.color;
+                ctx.beginPath();
+                ctx.rect(col.px_top - barW / 2, col.py_top - barW / 3, barW, barW / 3);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            if (isHologramActive) {
+                ctx.strokeStyle = 'rgba(0, 191, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(cx, cy + 10, scale * 9, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        function runHologramLoop() {
+            if (!isHologramActive) return;
+            holoWaveOffset += 0.08;
+            rotY += 0.012;
+            render3D();
+            animFrameId = requestAnimationFrame(runHologramLoop);
+        }
+
+        loadTrackerData();
+        setInterval(loadTrackerData, 180000);
+    </script>
+</body>
+</html>
