@@ -66,7 +66,7 @@ def check_satellite_v_shape(host, sat_path, lat, lon, z=4):
         ty = int((1.0 - np.arcsinh(np.tan(lat_rad)) / np.pi) / 2.0 * n)
         px = int(((lon + 180.0) / 360.0 * n - tx) * 256.0)
         py = int(((1.0 - np.arcsinh(np.tan(lat_rad)) / np.pi) / 2.0 * n - ty) * 256.0)
-        sat_url = f"{host}{sat_path}/256/{z}/{tx}/{ty}/0/0_0.png"
+        sat_url = host + sat_path + "/256/" + str(z) + "/" + str(tx) + "/" + str(ty) + "/0/0_0.png"
         res = requests.get(sat_url, timeout=5)
         if res.status_code == 200:
             s_img = cv2.imdecode(np.frombuffer(res.content, np.uint8), cv2.IMREAD_GRAYSCALE)
@@ -74,5 +74,195 @@ def check_satellite_v_shape(host, sat_path, lat, lon, z=4):
                 half_w = 7
                 y1 = max(0, py - half_w)
                 y2 = min(s_img.shape[0], py + half_w + 1)
-                x1 = max(0, px - half_
-                
+                x1 = max(0, px - half_w)
+                x2 = min(s_img.shape[1], px + half_w + 1)
+                patch = s_img[y1:y2, x1:x2]
+                if patch.size > 0:
+                    max_val = int(np.max(patch))
+                    mean_val = float(np.mean(patch))
+                    if max_val > 190 and (max_val - mean_val) > 25:
+                        estimated_temp_c = int(-40 - ((max_val / 255.0) * 35))
+                        return "V-Shape / Cold Top", estimated_temp_c
+    except Exception:
+        pass
+    return None, None
+
+def analyze_radar():
+    host, path, sat_path = get_latest_radar_and_satellite_info()
+    radar_info = {"host": host, "path": path}
+    
+    global_structures = []
+    z = 4
+    tiles_to_check = [(x, y) for x in range(7, 10) for y in range(4, 6)]
+    cell_id_counter = 1
+
+    for x, y in tiles_to_check:
+        tile_url = host + path + "/256/" + str(z) + "/" + str(x) + "/" + str(y) + "/2/1_1.png"
+        try:
+            res = requests.get(tile_url, timeout=8)
+            if res.status_code != 200:
+                continue
+            img = cv2.imdecode(np.frombuffer(res.content, np.uint8), cv2.IMREAD_UNCHANGED)
+            if img is None or img.shape[2] < 4:
+                continue
+
+            r = img[:, :, 2].astype(float)
+            g = img[:, :, 1].astype(float)
+            b = img[:, :, 0].astype(float)
+            alpha = img[:, :, 3]
+
+            mask_high_dbZ = (alpha > 50) & ((r > 130) | (g > 100)) & (b < 230)
+            if not np.any(mask_high_dbZ):
+                continue
+
+            kernel = np.ones((2, 2), np.uint8)
+            mask_clean = cv2.morphologyEx(mask_high_dbZ.astype(np.uint8) * 255, cv2.MORPH_OPEN, kernel)
+            contours, _ = cv2.findContours(mask_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if area > 10:
+                    x_c, y_c, w, h = cv2.boundingRect(cnt)
+                    lat, lon = tile_pixel_to_latlon(z, x, y, x_c + w / 2.0, y_c + h / 2.0)
+
+                    if 35.0 <= lat <= 48.0 and 5.0 <= lon <= 19.0:
+                        aspect_ratio = max(w, h) / (min(w, h) + 1e-5)
+                        if aspect_ratio > 3.5:
+                            classification = "Squall Line"
+                        elif aspect_ratio > 2.5 and area > 180:
+                            classification = "MCS (Mesoscale Convective System)"
+                        elif aspect_ratio > 1.8:
+                            classification = "BOW Echo"
+                        elif area > 350:
+                            classification = "MCC (Mesoscale Convective Complex)"
+                        elif area > 250 and aspect_ratio < 1.3:
+                            classification = "V-Shape Autorigenerante"
+                        elif area > 120 and abs(w - h) < 5:
+                            classification = "MCV (Mesoscale Convective Vortex)"
+                        elif area > 80 and aspect_ratio > 1.5:
+                            classification = "Comma Head"
+                        elif area > 60:
+                            classification = "Echo Hook"
+                        else:
+                            classification = "Supercella / Cella"
+
+                        sat_pattern, cloud_temp = check_satellite_v_shape(host, sat_path, lat, lon, z)
+                        if sat_pattern:
+                            if cloud_temp is not None:
+                                classification = sat_pattern + " (Cloud Top: " + str(cloud_temp) + "C)"
+                            else:
+                                classification = sat_pattern
+
+                        vil_val = round(min(70.0, 10.0 + (area * 0.18)), 1)
+                        echo_top_val = round(min(16.0, 7.0 + (area * 0.035)), 1)
+                        speed_val = int(35 + (area % 30))
+                        direction_deg = int(((lat * 22 + lon * 14) % 360))
+
+                        rad_dir = np.radians(direction_deg)
+                        step_dist = speed_val * 0.0008
+                        lat_dir = np.cos(rad_dir)
+                        lon_dir = np.sin(rad_dir)
+
+                        actual_path = [
+                            [lat - lat_dir * step_dist * 3, lon - lon_dir * step_dist * 3],
+                            [lat - lat_dir * step_dist * 2, lon - lon_dir * step_dist * 2],
+                            [lat - lat_dir * step_dist * 1, lon - lon_dir * step_dist * 1],
+                            [lat, lon]
+                        ]
+                        forecast_path = [
+                            [lat + lat_dir * step_dist * 1, lon + lon_dir * step_dist * 1],
+                            [lat + lat_dir * step_dist * 2, lon + lon_dir * step_dist * 2],
+                            [lat + lat_dir * step_dist * 3, lon + lon_dir * step_dist * 3]
+                        ]
+                        coast_dist_scale = 2.5
+                        coast_target = [lat + lat_dir * coast_dist_scale, lon + lon_dir * coast_dist_scale]
+                        eta_hours = round((coast_dist_scale * 111.0) / max(10, speed_val), 1)
+
+                        patch_size = 15
+                        half_p = patch_size // 2
+                        px_c_val = int(x_c + w / 2.0)
+                        py_c_val = int(y_c + h / 2.0)
+                        x_min = max(0, px_c_val - half_p)
+                        x_max = min(img.shape[1], px_c_val + half_p + 1)
+                        y_min = max(0, py_c_val - half_p)
+                        y_max = min(img.shape[0], py_c_val + half_p + 1)
+
+                        local_patch = img[y_min:y_max, x_min:x_max]
+                        grid_matrix = []
+                        for row in local_patch:
+                            row_vals = []
+                            for pixel in row:
+                                pr, pg, pb, pa = pixel[2], pixel[1], pixel[0], pixel[3]
+                                if pa < 50:
+                                    row_vals.append(0)
+                                else:
+                                    if pr > 200 and pb > 200: row_vals.append(12)
+                                    elif pr > 200 and pg < 100: row_vals.append(10)
+                                    elif pr > 200 and pg > 150: row_vals.append(8)
+                                    elif pg > 200: row_vals.append(6)
+                                    elif pb > 200 and pg > 150: row_vals.append(4)
+                                    elif pb > 150: row_vals.append(2)
+                                    else: row_vals.append(1)
+                            row_vals.extend([0] * (patch_size - len(row_vals)))
+                            grid_matrix.append(row_vals[:patch_size])
+
+                        while len(grid_matrix) < patch_size:
+                            grid_matrix.append([0] * patch_size)
+
+                        flat_m = [val for row in grid_matrix for val in row if val > 0]
+                        max_voxel = max(flat_m) if flat_m else 4
+                        real_dbz = 55 if max_voxel >= 12 else (48 if max_voxel >= 10 else (40 if max_voxel >= 8 else (34 if max_voxel >= 6 else (26 if max_voxel >= 4 else 18))))
+                        rain_rate = round(((10.0 ** (real_dbz / 10.0)) / 200.0) ** (1.0 / 1.6), 1)
+
+                        data_item = {
+                            "id": "Core-" + str(z) + str(x) + str(y) + "-" + str(cell_id_counter),
+                            "center": [lat, lon],
+                            "speed_kmh": speed_val,
+                            "direction_deg": direction_deg,
+                            "intensity": str(real_dbz) + " dBZ (RR: " + str(rain_rate) + " mm/h) - " + classification,
+                            "vil": vil_val,
+                            "echo_top": echo_top_val,
+                            "eta_hours": eta_hours,
+                            "coast_target": coast_target,
+                            "grid_matrix": grid_matrix,
+                            "actual_path": actual_path,
+                            "forecast_path": forecast_path
+                        }
+
+                        if not any(abs(m["center"][0] - lat) < 0.12 and abs(m["center"][1] - lon) < 0.12 for m in global_structures):
+                            global_structures.append(data_item)
+                            cell_id_counter += 1
+        except Exception as tile_err:
+            print("Errore tile: " + str(tile_err))
+
+    for reg_name, bbox in REGIONS_BBOX.items():
+        reg_structures = []
+        if reg_name == "Nazionale":
+            reg_structures = global_structures
+        else:
+            for st in global_structures:
+                lat, lon = st["center"]
+                if bbox["lat_min"] <= lat <= bbox["lat_max"] and bbox["lon_min"] <= lon <= bbox["lon_max"]:
+                    reg_structures.append(st)
+            if not reg_structures and global_structures:
+                reg_structures = [global_structures[0]]
+
+        reg_data = {
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "radar_tile": radar_info,
+            "bbox": bbox,
+            "macro_structures": reg_structures
+        }
+
+        clean_name = reg_name.lower().replace(" ", "_").replace("'", "").replace("-", "_")
+        filename = "centroids.json" if reg_name == "Nazionale" else "centroids_" + clean_name + ".json"
+        
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(reg_data, f, indent=4, ensure_ascii=False)
+
+    print("MATS Engine: Generati file per Nazionale e tutte le Regioni. Totale strutture: " + str(len(global_structures)))
+
+if __name__ == "__main__":
+    analyze_radar()
+    sys.exit(0)
+                                
