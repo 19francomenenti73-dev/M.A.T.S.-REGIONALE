@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>M.A.T.S. Regioni - Mesoscale Advanced Tracking System</title>
-    <!-- Leaflet CSS -->
+    <title>MATS 3D - Mesoscale Advanced Tracking System</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         html, body {
@@ -12,132 +11,181 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
-            background: #08080a;
-            color: #f0f0f0;
+            background: #0a0a0a;
+            color: #fff;
             overflow: hidden;
         }
 
-        #map { width: 100%; height: 100vh; background: #08080a; }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
 
-        /* Header Operativo e Menu a Scorrimento */
-        .mats-header-container {
+        .mats-header {
             position: absolute;
             top: 12px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 92%;
-            max-width: 850px;
-            pointer-events: none;
-        }
-
-        .mats-brand {
-            background: rgba(12, 12, 15, 0.92);
-            padding: 6px 20px;
-            border-radius: 10px;
-            border: 1px solid rgba(212, 175, 55, 0.35);
-            backdrop-filter: blur(6px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
             text-align: center;
-            margin-bottom: 6px;
-            pointer-events: auto;
+            pointer-events: none;
+            background: rgba(10, 10, 10, 0.85);
+            padding: 8px 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
         }
 
         .mats-title {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 900;
             letter-spacing: 2px;
-            background: linear-gradient(45deg, #ffd700, #ff8c00, #ff4500);
+            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #00ffff, #0000ff, #8b00ff);
+            background-size: 400% 400%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            animation: rainbow-pulse 3s ease infinite;
             margin: 0;
             line-height: 1;
         }
 
         .mats-subtitle {
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 700;
-            color: #d4af37;
-            letter-spacing: 2px;
+            color: #00bfff;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            margin-top: 2px;
+            animation: blue-pulse 2s ease-in-out infinite;
+            margin-top: 3px;
         }
 
-        /* Menu Scorrevole Orizzontale Regioni */
-        .regions-slider {
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-            max-width: 100%;
-            padding: 4px 2px;
-            scrollbar-width: none;
-            pointer-events: auto;
-        }
-        .regions-slider::-webkit-scrollbar { display: none; }
-
-        .region-pill {
-            background: rgba(20, 20, 25, 0.88);
-            border: 1px solid rgba(212, 175, 55, 0.25);
-            color: #ccc;
-            padding: 5px 12px;
-            border-radius: 16px;
-            font-size: 11px;
-            font-weight: 600;
-            white-space: nowrap;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        @keyframes rainbow-pulse {
+            0% { background-position: 0% 50%; opacity: 0.85; transform: scale(0.98); }
+            50% { background-position: 100% 50%; opacity: 1; transform: scale(1.02); }
+            100% { background-position: 0% 50%; opacity: 0.85; transform: scale(0.98); }
         }
 
-        .region-pill:hover, .region-pill.active {
-            background: #d4af37;
-            color: #000;
-            border-color: #fff;
-            font-weight: 700;
+        @keyframes blue-pulse {
+            0% { opacity: 0.6; text-shadow: 0 0 2px rgba(0, 191, 255, 0.4); }
+            50% { opacity: 1; text-shadow: 0 0 10px rgba(0, 191, 255, 0.9); }
+            100% { opacity: 0.6; text-shadow: 0 0 2px rgba(0, 191, 255, 0.4); }
         }
 
-        /* Banner Operativo Inferiore */
-        .map-banner {
+        /* Barra di scorrimento superiore per le Regioni */
+        .regions-nav-bar {
             position: absolute;
-            bottom: 20px;
+            top: 78px;
             left: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(12, 12, 15, 0.92);
-            padding: 8px 14px;
-            border-radius: 8px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
-            border: 1px solid rgba(212, 175, 55, 0.2);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 6px 4px;
+            background: rgba(15, 15, 15, 0.88);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(4px);
+            scrollbar-width: thin;
+            scrollbar-color: #00bfff rgba(0,0,0,0.3);
+        }
+
+        .regions-nav-bar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .regions-nav-bar::-webkit-scrollbar-thumb {
+            background: #00bfff;
+            border-radius: 2px;
+        }
+
+        .region-btn {
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 5px 12px;
+            border-radius: 6px;
             font-size: 11px;
-            color: #ddd;
-            flex-wrap: wrap;
-            gap: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .region-btn:hover {
+            background: rgba(0, 191, 255, 0.3);
+            color: #fff;
+            border-color: #00bfff;
+        }
+
+        .region-btn.active {
+            background: #00bfff;
+            color: #000;
+            font-weight: 700;
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.6);
+        }
+
+        .source-credits {
+            position: absolute;
+            bottom: 6px;
+            right: 10px;
+            z-index: 1000;
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 3px 8px;
+            border-radius: 4px;
             pointer-events: auto;
         }
 
-        .counter-badge { font-weight: bold; color: #ffd700; font-size: 13px; }
-        .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #bbb; }
+        .source-credits a {
+            color: rgba(0, 191, 255, 0.8);
+            text-decoration: none;
+        }
 
-        /* Anello Centroide con Allerte Grandine/Rotazione */
+        .map-banner {
+            position: absolute;
+            bottom: 24px;
+            left: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(18, 18, 18, 0.92);
+            padding: 8px 14px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #ddd;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .counter-badge {
+            font-weight: bold;
+            color: #ff4d4d;
+            font-size: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: #aaa;
+        }
+
         .centroid-ring {
             width: 16px;
             height: 16px;
             border-radius: 50%;
-            border: 2px solid #fff;
+            border: 2px solid #ffffff;
             cursor: pointer;
-            box-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+            box-shadow: 0 0 10px rgba(0,0,0,0.9);
             animation: ring-pulse 1.5s infinite ease-in-out;
-        }
-        .centroid-severe {
-            border-color: #ff00ff;
-            box-shadow: 0 0 16px rgba(255, 0, 255, 0.9);
-            animation: severe-pulse 0.8s infinite alternate;
         }
 
         @keyframes ring-pulse {
@@ -145,159 +193,194 @@
             50% { transform: scale(1.25); opacity: 1; }
             100% { transform: scale(0.85); opacity: 0.8; }
         }
-        @keyframes severe-pulse {
-            0% { transform: scale(0.9); }
-            100% { transform: scale(1.35); }
-        }
 
-        /* Visore 3D Full-Screen */
         #viewer-3d-modal {
             display: none;
             position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #050508;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(5, 5, 8, 0.96);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             touch-action: none;
         }
-        #canvas-3d-container { 
-            width: 100%; height: 78vh; display: flex; justify-content: center; align-items: center; cursor: grab; 
-            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
-        }
-        #canvas-3d-container:active { cursor: grabbing; }
-        .modal-info-bar {
-            position: absolute; top: 15px; left: 15px; right: 15px;
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(212, 175, 55, 0.08); padding: 10px 16px; border-radius: 8px;
-            border: 1px solid rgba(212, 175, 55, 0.3);
-        }
-        .close-btn { background: #d4af37; color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .controls-hint { position: absolute; bottom: 15px; font-size: 11px; color: #888; text-align: center; letter-spacing: 1px; }
 
-        /* Credits Ancorati in Basso a Destra */
-        .source-credits {
-            position: absolute; bottom: 6px; right: 10px; z-index: 1000;
-            font-size: 9px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.75);
-            padding: 3px 6px; border-radius: 4px; pointer-events: auto;
+        #canvas-3d-container {
+            width: 100%;
+            height: 75vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            position: relative;
         }
-        .source-credits a { color: #d4af37; text-decoration: none; }
+
+        #canvas-3d-container:active {
+            cursor: grabbing;
+        }
+
+        .modal-info-bar {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .close-btn {
+            background: #ff3333;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        /* Pulsante Olografico 3D Live in stile Video Riferimento */
+        .holo-toggle-btn {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #00bfff, #0044ff);
+            color: #fff;
+            border: 2px solid #ffffff;
+            padding: 10px 24px;
+            border-radius: 25px;
+            font-weight: 900;
+            font-size: 13px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 191, 255, 0.7);
+            transition: all 0.3s ease;
+            z-index: 10000;
+        }
+
+        .holo-toggle-btn:hover {
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 191, 255, 1);
+            background: linear-gradient(135deg, #00ffff, #0066ff);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 8px;
+            font-size: 11px;
+            color: #888;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Header con Brand e Slider Regioni -->
-    <div class="mats-header-container">
-        <div class="mats-brand">
-            <div class="mats-title">M.A.T.S. REGIONI</div>
-            <div class="mats-subtitle">Mesoscale Advanced Tracking System &bull; Oro-Topographic Edition</div>
-        </div>
-        <div class="regions-slider" id="regions-slider">
-            <div class="region-pill active" onclick="switchRegion('Nazionale', 4, [42.5, 12.5], this)">Nazionale</div>
-            <div class="region-pill" onclick="switchRegion('Abruzzo', 8, [42.35, 13.4], this)">Abruzzo</div>
-            <div class="region-pill" onclick="switchRegion('Basilicata', 8, [40.6, 16.5], this)">Basilicata</div>
-            <div class="region-pill" onclick="switchRegion('Calabria', 8, [39.0, 16.5], this)">Calabria</div>
-            <div class="region-pill" onclick="switchRegion('Campania', 8, [40.8, 14.8], this)">Campania</div>
-            <div class="region-pill" onclick="switchRegion('Emilia-Romagna', 8, [44.5, 11.3], this)">Emilia-Romagna</div>
-            <div class="region-pill" onclick="switchRegion('Friuli-Venezia Giulia', 8, [46.1, 13.2], this)">Friuli-V. Giulia</div>
-            <div class="region-pill" onclick="switchRegion('Lazio', 8, [41.9, 12.5], this)">Lazio</div>
-            <div class="region-pill" onclick="switchRegion('Liguria', 8, [44.4, 8.9], this)">Liguria</div>
-            <div class="region-pill" onclick="switchRegion('Lombardia', 8, [45.5, 9.7], this)">Lombardia</div>
-            <div class="region-pill" onclick="switchRegion('Marche', 8, [43.4, 13.3], this)">Marche</div>
-            <div class="region-pill" onclick="switchRegion('Molise', 8, [41.6, 14.6], this)">Molise</div>
-            <div class="region-pill" onclick="switchRegion('Piemonte', 8, [45.0, 7.8], this)">Piemonte</div>
-            <div class="region-pill" onclick="switchRegion('Puglia', 8, [41.1, 16.8], this)">Puglia</div>
-            <div class="region-pill" onclick="switchRegion('Sardegna', 8, [40.1, 9.1], this)">Sardegna</div>
-            <div class="region-pill" onclick="switchRegion('Sicilia', 8, [37.6, 14.0], this)">Sicilia</div>
-            <div class="region-pill" onclick="switchRegion('Toscana', 8, [43.4, 11.2], this)">Toscana</div>
-            <div class="region-pill" onclick="switchRegion('Trentino-Alto Adige', 8, [46.5, 11.3], this)">Trentino-A.Adige</div>
-            <div class="region-pill" onclick="switchRegion('Umbria', 8, [43.1, 12.4], this)">Umbria</div>
-            <div class="region-pill" onclick="switchRegion('Valle d\'Aosta', 8, [45.7, 7.3], this)">Valle d'Aosta</div>
-            <div class="region-pill" onclick="switchRegion('Veneto', 8, [45.5, 11.8], this)">Veneto</div>
-        </div>
+    <div class="mats-header">
+        <div class="mats-title">MATS</div>
+        <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
     </div>
 
-    <!-- Mappa -->
+    <!-- Barra di navigazione rapida Regioni -->
+    <div class="regions-nav-bar" id="regions-bar"></div>
+
     <div id="map"></div>
 
-    <!-- Crediti Ancorati in Basso a Destra -->
     <div class="source-credits">
-        Dati: <a href="https://www.rainviewer.com" target="_blank">RainViewer API</a> | Mappa: Esri Topo Oro &amp; Labels
+        Dati: <a href="https://www.rainviewer.com" target="_blank">RainViewer Radar API</a> | Mappa: &copy; Esri World Topo
     </div>
 
-    <!-- Banner Inferiore -->
     <div class="map-banner">
         <div>
-            <span><b>Core 3D Attivi:</b> <span id="active-count" class="counter-badge">0</span></span>
-            <span id="last-update" style="font-size: 10px; color: #888; margin-left: 8px; padding-left: 8px; border-left: 1px solid #444;"></span>
+            <span><b>Strutture 3D Rilevate:</b> <span id="active-count" class="counter-badge">0</span></span>
+            <span id="last-update" style="font-size: 10px; color: #888; border-left: 1px solid #444; margin-left: 10px; padding-left: 8px;"></span>
         </div>
-        <div style="display: flex; gap: 10px;">
-            <div class="legend-item"><span style="width: 10px; height: 3px; background: #0066cc;"></span> Storico</div>
-            <div class="legend-item"><span style="width: 8px; height: 8px; background: #ffd700; border-radius: 50%;"></span> Centroide</div>
-            <div class="legend-item"><span style="width: 10px; height: 3px; background: #ff3333;"></span> Predittivo</div>
-            <div class="legend-item"><span style="width: 8px; height: 8px; background: #ff00ff; border-radius: 50%;"></span> Grandine / Rotazione</div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div class="legend-item"><span style="width: 12px; height: 3px; background: #0066cc;"></span> Storico</div>
+            <div class="legend-item"><span style="width: 8px; height: 8px; background: #ffcc00; border-radius: 50%;"></span> Centroide</div>
+            <div class="legend-item"><span style="width: 12px; height: 3px; background: #ff1a1a;"></span> Predittivo</div>
+            <div class="legend-item"><span style="width: 12px; height: 8px; background: rgba(255,100,0,0.3); border: 1px dashed #ff5500;"></span> Cono ETA Costa</div>
         </div>
     </div>
 
-    <!-- Modal Visore Wireframe 3D -->
+    <!-- Full-Screen 3D Modal Viewer con Ologramma Animato -->
     <div id="viewer-3d-modal">
         <div class="modal-info-bar">
             <div>
-                <b id="modal-cell-id" style="font-size: 15px; color: #ffd700;">Hologram Core 3D</b>
-                <div id="modal-cell-details" style="font-size: 11px; color: #bbb;">-</div>
+                <b id="modal-cell-id" style="font-size: 16px; color: #00bfff;">Core 3D</b>
+                <div id="modal-cell-details" style="font-size: 12px; color: #ccc;">-</div>
             </div>
             <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
         </div>
-        <div id="canvas-3d-container"><canvas id="viewer-canvas"></canvas></div>
-        <div class="controls-hint">TRASCINA PER RUOTARE A 360° | WIREFRAME OLOGRAFICO DI PRECISIONE</div>
+        
+        <div id="canvas-3d-container">
+            <canvas id="viewer-canvas"></canvas>
+            <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">ATTIVA OLOGRAMMA LIVE</button>
+        </div>
+
+        <div class="controls-hint">
+            Ruota liberamente a 360° | Ancorato al centro della base
+        </div>
     </div>
 
-    <!-- Leaflet & Script -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
+        const REGIONS_LIST = [
+            "Nazionale", "Abruzzo", "Basilicata", "Calabria", "Campania", 
+            "Emilia-Romagna", "Friuli-Venezia Giulia", "Lazio", "Liguria", 
+            "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", 
+            "Sardegna", "Sicilia", "Toscana", "Trentino-Alto Adige", 
+            "Umbria", "Valle d'Aosta", "Veneto"
+        ];
+
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-        // 1. Mappa Base Oro-Topografica
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
             attribution: ''
         }).addTo(map);
 
-        // 2. Layer Superiore con Città, Paesi e Confini
-        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            opacity: 0.95,
-            zIndex: 300
-        }).addTo(map);
-
         var radarLayer = null;
         var cellsLayer = L.layerGroup().addTo(map);
         var vectorsLayer = L.layerGroup().addTo(map);
-        var currentRegionFile = 'centroids.json';
+        var currentSelectedRegion = "Nazionale";
 
-        function switchRegion(regionName, zoomLevel, centerCoords, pillElement) {
-            document.querySelectorAll('.region-pill').forEach(p => p.classList.remove('active'));
-            if (pillElement) pillElement.classList.add('active');
+        // Inizializzazione Barra Regioni
+        const barContainer = document.getElementById('regions-bar');
+        REGIONS_LIST.forEach(reg => {
+            let btn = document.createElement('button');
+            btn.className = 'region-btn' + (reg === "Nazionale" ? ' active' : '');
+            btn.innerText = reg;
+            btn.id = 'reg-btn-' + reg.toLowerCase().replace(/[^a-z]/g, '');
+            btn.onclick = () => selectRegion(reg);
+            barContainer.appendChild(btn);
+        });
 
-            map.setView(centerCoords, zoomLevel);
-            
-            if (regionName === 'Nazionale') {
-                currentRegionFile = 'centroids.json';
-            } else {
-                // Sanificazione rigorosa coerente con il backend Python
-                let safeName = regionName.toLowerCase().replace(/-/g, '_').replace(/\s+/g, '_').replace(/'/g, '');
-                currentRegionFile = `centroids_${safeName}.json`;
-            }
+        function selectRegion(regName) {
+            currentSelectedRegion = regName;
+            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+            let activeId = 'reg-btn-' + regName.toLowerCase().replace(/[^a-z]/g, '');
+            let activeBtn = document.getElementById(activeId);
+            if (activeBtn) activeBtn.classList.add('active');
             loadTrackerData();
         }
 
         function getColor(val) {
             if (val >= 12) return '#ff00ff';
-            if (val >= 10) return '#ff3300';
-            if (val >= 8)  return '#ffd700';
+            if (val >= 10) return '#ff0000';
+            if (val >= 8)  return '#ffcc00';
             if (val >= 6)  return '#00ff00';
             if (val >= 4)  return '#00ffff';
             return '#0066ff';
@@ -315,16 +398,19 @@
         }
 
         function loadTrackerData() {
-            fetch(currentRegionFile + '?' + new Date().getTime())
-                .then(res => {
-                    if (!res.ok) throw new Error("File non trovato o non ancora generato: " + currentRegionFile);
-                    return res.json();
-                })
+            let jsonFile = currentSelectedRegion === "Nazionale" ? "centroids.json" : `centroids_${currentSelectedRegion.toLowerCase().replace(/[\s'-]/g, '_')}.json`;
+            
+            fetch(jsonFile + '?' + new Date().getTime())
+                .then(res => res.json())
                 .then(data => {
+                    if (data.bbox && data.bbox.center) {
+                        map.setView(data.bbox.center, data.bbox.zoom || 8);
+                    }
+
                     if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
                         let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
                         if (!radarLayer) {
-                            radarLayer = L.tileLayer(radarUrl, { opacity: 0.68, zIndex: 200 }).addTo(map);
+                            radarLayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 }).addTo(map);
                         } else {
                             radarLayer.setUrl(radarUrl);
                         }
@@ -341,84 +427,101 @@
                         let center = track.center;
                         let peakVal = getMaxVal(track.grid_matrix);
                         let cellColor = getColor(peakVal);
-                        let isSevere = track.hail_risk || track.hook_signature;
 
                         if (track.actual_path && track.actual_path.length > 0) {
                             L.polyline(track.actual_path, { color: '#0066cc', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                         }
 
                         if (center && center.length === 2) {
-                            let iconClass = isSevere ? 'centroid-ring centroid-severe' : 'centroid-ring';
                             let centroidIcon = L.divIcon({
                                 className: 'custom-centroid',
-                                html: `<div class="${iconClass}" style="background-color: ${cellColor};" title="${track.id}"></div>`,
-                                iconSize: [16, 16], iconAnchor: [8, 8]
+                                html: `<div class="centroid-ring" style="background-color: ${cellColor};" title="Apri Profilo 3D ${track.id}"></div>`,
+                                iconSize: [16, 16],
+                                iconAnchor: [8, 8]
                             });
                             let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(cellsLayer);
                             marker.on('click', () => open3DViewer(track));
                         }
 
                         if (track.forecast_path && track.forecast_path.length > 0 && center) {
-                            L.polyline([center, ...track.forecast_path], { color: '#ff3333', weight: 3, dashArray: '5, 6', opacity: 0.9 }).addTo(vectorsLayer);
+                            L.polyline([center, ...track.forecast_path], { color: '#ff1a1a', weight: 3, dashArray: '5, 6', opacity: 0.9 }).addTo(vectorsLayer);
                         }
 
                         if (track.coast_target && center) {
                             let target = track.coast_target;
-                            let dLat = target[0] - center[0], dLon = target[1] - center[1];
-                            let perpLat = -dLon * 0.25, perpLon = dLat * 0.25;
-                            L.polygon([center, [target[0] + perpLat, target[1] + perpLon], [target[0] - perpLat, target[1] - perpLon]], {
-                                color: '#ff8c00', fillColor: '#ff8c00', fillOpacity: 0.18, weight: 1.5, dashArray: '4, 4'
+                            let dLat = target[0] - center[0];
+                            let dLon = target[1] - center[1];
+                            let perpLat = -dLon * 0.25;
+                            let perpLon = dLat * 0.25;
+
+                            let coneLeft = [target[0] + perpLat, target[1] + perpLon];
+                            let coneRight = [target[0] - perpLat, target[1] - perpLon];
+
+                            L.polygon([center, coneLeft, coneRight], {
+                                color: '#ff5500',
+                                fillColor: '#ff6600',
+                                fillOpacity: 0.2,
+                                weight: 2,
+                                dashArray: '4, 4'
                             }).addTo(vectorsLayer);
 
                             let etaIcon = L.divIcon({
                                 className: 'eta-badge',
-                                html: `<div style="background: rgba(8,8,12,0.92); border: 1px solid #ffd700; color: #ffd700; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; white-space: nowrap;">ETA: ${track.eta_hours || '?'}h</div>`,
-                                iconSize: [60, 20], iconAnchor: [30, 10]
+                                html: `<div style="background: rgba(0,0,0,0.85); border: 1px solid #ff5500; color: #ffaa00; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; white-space: nowrap;">ETA: ${track.eta_hours || '?'}h</div>`,
+                                iconSize: [60, 20],
+                                iconAnchor: [30, 10]
                             });
                             L.marker(target, { icon: etaIcon }).addTo(vectorsLayer);
                         }
                     });
                 })
-                .catch(err => {
-                    console.warn('Avviso caricamento JSON:', err);
-                    cellsLayer.clearLayers();
-                    vectorsLayer.clearLayers();
-                    document.getElementById('active-count').innerText = "0";
-                    document.getElementById('last-update').innerText = 'In attesa telemetria...';
-                });
+                .catch(err => console.log('In attesa aggiornamento dati reg:', err));
         }
 
         // ==========================================
-        // MOTORE GRAFICO WIREFRAME OLOGRAFICO 3D
+        // ENGINE 3D VOXEL STABILE + MODALITÀ OLOGRAMMA LIVE
         // ==========================================
-        var currentTrack = null, rotX = 0.55, rotY = 0.0, isDragging = false, lastMouseX, lastMouseY;
+        var currentTrack = null;
+        var rotX = 0.5;
+        var rotY = 0.0;
+        var isDragging = false;
+        var lastMouseX, lastMouseY;
+        var isHologramActive = false;
+        var animFrameId = null;
+        var holoWaveOffset = 0;
 
         function open3DViewer(track) {
             currentTrack = track;
-            rotY = 0.0; rotX = 0.55;
+            rotY = 0.0;
+            rotX = 0.5;
+            isHologramActive = false;
+            document.getElementById('holo-btn').innerText = "ATTIVA OLOGRAMMA LIVE";
             document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
-            document.getElementById('modal-cell-details').innerText = `Vel: ${track.speed_kmh}km/h | VIL: ${track.vil} kg/m² (Densità: ${track.vil_density || 'N/D'}) | Top: ${track.echo_top} km`;
+            document.getElementById('modal-cell-details').innerText = `Velocità: ${track.speed_kmh} km/h (${track.direction_deg}°) | VIL: ${track.vil} kg/m² | Echo Top: ${track.echo_top} km | ETA Costa: ${track.eta_hours || '?'}h`;
             document.getElementById('viewer-3d-modal').style.display = 'flex';
-            renderWireframe3D();
+            render3D();
         }
-        function close3DViewer() { document.getElementById('viewer-3d-modal').style.display = 'none'; currentTrack = null; }
+
+        function close3DViewer() {
+            document.getElementById('viewer-3d-modal').style.display = 'none';
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            currentTrack = null;
+            isHologramActive = false;
+        }
+
+        function toggleHologramMode() {
+            isHologramActive = !isHologramActive;
+            document.getElementById('holo-btn').innerText = isHologramActive ? "DISATTIVA OLOGRAMMA" : "ATTIVA OLOGRAMMA LIVE";
+            if (isHologramActive) {
+                runHologramLoop();
+            } else {
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+                render3D();
+            }
+        }
 
         var canvas = document.getElementById('viewer-canvas');
         var ctx = canvas.getContext('2d');
         var container = document.getElementById('canvas-3d-container');
 
-        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
-        window.addEventListener('mouseup', () => isDragging = false);
-        window.addEventListener('mousemove', e => {
-            if (!isDragging) return;
-            rotY += (e.clientX - lastMouseX) * 0.008;
-            rotX += (e.clientY - lastMouseY) * 0.005;
-            rotX = Math.max(0.15, Math.min(0.85, rotX));
-            lastMouseX = e.clientX; lastMouseY = e.clientY;
-            renderWireframe3D();
-        });
-
-        container.addEventListener('touchstart', e => {
-            if (e.touches.length === 1) {
-                isDragging = true;
-                lastMouseX = e.touches[0].clie
+        container.addEventListener('mousedown', e => 
