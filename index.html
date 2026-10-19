@@ -441,6 +441,364 @@
         }
 
         loadMasterData();
+        var currentTrack = null;
+        var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+        var isWireframeMode = false;
+        var wireframeAnimId = null;
+        var scanAngle = 0;
+
+        function open3DViewer(track) {
+            currentTrack = track;
+            rotY = 0.0; rotX = 0.5; isWireframeMode = false;
+            document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
+            document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
+            document.getElementById('modal-cell-details').innerText = "Vel: " + track.speed_kmh + " km/h | VIL: " + track.vil + " | Top: " + track.echo_top + " km";
+            document.getElementById('viewer-3d-modal').style.display = 'flex';
+            render3D();
+        }
+
+        function close3DViewer() {
+            document.getElementById('viewer-3d-modal').style.display = 'none';
+            if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+            currentTrack = null; isWireframeMode = false;
+        }
+
+        function toggleHologramMode() {
+            isWireframeMode = !isWireframeMode;
+            document.getElementById('holo-btn').innerText = isWireframeMode ? "DISATTIVA WIREFRAME 3D" : "ATTIVA WIREFRAME 3D";
+            if (isWireframeMode) {
+                runWireframeLoop();
+            } else {
+                if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+                render3D();
+            }
+        }
+
+        var canvas = document.getElementById('viewer-canvas');
+        var ctx = canvas.getContext('2d');
+        var container = document.getElementById('canvas-3d-container');
+
+        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; }
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            rotY += (e.clientX - lastMouseX) * 0.01;
+            rotX += (e.clientY - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+            if (!isWireframeMode) render3D();
+        });
+
+        window.addEventListener('touchmove', e => {
+            if (!isDragging || e.touches.length !== 1) return;
+            let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+            rotY += (cx - lastMouseX) * 0.01;
+            rotX += (cy - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = cx; lastMouseY = cy;
+            if (!isWireframeMode) render3D();
+        }, { passive: true });
+
+        function render3D() {
+            if (!currentTrack) return;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = col.color;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function runWireframeLoop() {
+            if (!isWireframeMode) return;
+            scanAngle += 0.03;
+            rotY += 0.008;
+
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = 'rgba(0, 191, 255, 0.08)';
+                ctx.strokeStyle = 'rgba(0, 191, 255, 0.9)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00ffcc';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(cx - 100, scanY);
+            ctx.lineTo(cx + 100, scanY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            wireframeAnimId = requestAnimationFrame(runWireframeLoop);
+        }
+
+        loadMasterData();
+                var currentTrack = null;
+        var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+        var isWireframeMode = false;
+        var wireframeAnimId = null;
+        var scanAngle = 0;
+
+        function open3DViewer(track) {
+            currentTrack = track;
+            rotY = 0.0; rotX = 0.5; isWireframeMode = false;
+            document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
+            document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
+            document.getElementById('modal-cell-details').innerText = "Vel: " + track.speed_kmh + " km/h | VIL: " + track.vil + " | Top: " + track.echo_top + " km";
+            document.getElementById('viewer-3d-modal').style.display = 'flex';
+            render3D();
+        }
+
+        function close3DViewer() {
+            document.getElementById('viewer-3d-modal').style.display = 'none';
+            if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+            currentTrack = null; isWireframeMode = false;
+        }
+
+        function toggleHologramMode() {
+            isWireframeMode = !isWireframeMode;
+            document.getElementById('holo-btn').innerText = isWireframeMode ? "DISATTIVA WIREFRAME 3D" : "ATTIVA WIREFRAME 3D";
+            if (isWireframeMode) {
+                runWireframeLoop();
+            } else {
+                if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+                render3D();
+            }
+        }
+
+        var canvas = document.getElementById('viewer-canvas');
+        var ctx = canvas.getContext('2d');
+        var container = document.getElementById('canvas-3d-container');
+
+        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; }
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            rotY += (e.clientX - lastMouseX) * 0.01;
+            rotX += (e.clientY - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+            if (!isWireframeMode) render3D();
+        });
+
+        window.addEventListener('touchmove', e => {
+            if (!isDragging || e.touches.length !== 1) return;
+            let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+            rotY += (cx - lastMouseX) * 0.01;
+            rotX += (cy - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = cx; lastMouseY = cy;
+            if (!isWireframeMode) render3D();
+        }, { passive: true });
+
+        function render3D() {
+            if (!currentTrack) return;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = col.color;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function runWireframeLoop() {
+            if (!isWireframeMode) return;
+            scanAngle += 0.03;
+            rotY += 0.008;
+
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = 'rgba(0, 191, 255, 0.08)';
+                ctx.strokeStyle = 'rgba(0, 191, 255, 0.9)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00ffcc';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(cx - 100, scanY);
+            ctx.lineTo(cx + 100, scanY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            wireframeAnimId = requestAnimationFrame(runWireframeLoop);
+        }
+
+        loadMasterData();
         setInterval(loadMasterData, 180000);
     </script>
 </body>
