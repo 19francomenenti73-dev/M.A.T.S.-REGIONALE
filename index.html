@@ -28,7 +28,7 @@
             top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            zIndex: 1000;
+            z-index: 1000;
             text-align: center;
             pointer-events: none;
             background: rgba(10, 10, 10, 0.85);
@@ -104,7 +104,24 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(10,
+            background: rgba(10, 10, 10, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 11px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        /* Modale Viewer 3D */
+        #viewer-3d-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0
                                  <script>
         const regionsList = [
             "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", 
@@ -113,7 +130,6 @@
             "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"
         ];
 
-        // Coordinate approssimative dei centroidi regionali per il filtro zoom
         const regionCoords = {
             "Abruzzo": [42.35, 13.4], "Basilicata": [40.64, 16.55], "Calabria": [39.3, 16.5],
             "Campania": [40.85, 14.26], "Emilia-Romagna": [44.49, 11.34], "Friuli-Venezia Giulia": [46.06, 13.23],
@@ -159,20 +175,20 @@
         let vectorsLayer = L.layerGroup().addTo(map);
 
         function getColor(val) {
-            if (val > 10) return '#ff0000'; // Forte / Grandine
-            if (val > 6) return '#ffcc00';  // Moderato
-            return '#00bfff';                 // Debole
+            if (val > 10) return '#ff0000';
+            if (val > 6) return '#ffcc00';
+            return '#00bfff';
         }
 
         async function loadMasterData() {
             try {
                 let res = await fetch('centroids.json?t=' + Date.now());
-                if (!res.ok) throw new Error("Errore caricamento dati master");
+                if (!res.ok) throw new Error("Errore dati");
                 let data = await res.json();
                 window.lastLoadedData = data;
                 renderRegionalData(data);
             } catch (err) {
-                console.log("In attesa del primo aggiornamento pipeline...", err);
+                console.log("In attesa dati...", err);
             }
         }
 
@@ -194,22 +210,19 @@
                 let center = track.center;
                 if (!center || center.length < 2) return;
 
-                // Filtro geografico regione o Nazionale
                 if (currentActiveRegion !== 'Nazionale') {
                     let coords = regionCoords[currentActiveRegion];
                     if (coords) {
                         let dist = Math.abs(center[0] - coords[0]) + Math.abs(center[1] - coords[1]);
-                        if (dist > 2.2) return; // Fuori raggio regione
+                        if (dist > 2.2) return;
                     }
                 }
 
-                // Vettore Storico
                 if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
                     L.polyline(fullPath, { color: '#00bfff', weight: 4, opacity: 0.75 }).addTo(vectorsLayer);
                 }
 
-                // Centroide Cella
                 let centroidIcon = L.divIcon({
                     className: 'centroid-pulse',
                     iconSize: [16, 16],
@@ -218,12 +231,10 @@
                 let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(vectorsLayer);
                 marker.on('click', () => open3DViewer(track));
 
-                // Vettore Predittivo
                 if (track.forecast_path && track.forecast_path.length > 0) {
                     L.polyline([center, ...track.forecast_path], { color: '#ff5500', weight: 3, dashArray: '5, 5' }).addTo(vectorsLayer);
                 }
 
-                // Cono ETA Costa
                 if (track.coast_target) {
                     let target = track.coast_target;
                     let dLat = target[0] - center[0];
@@ -251,9 +262,6 @@
             });
         }
 
-        // ==========================================
-        // GESTIONE MODALE 3D (VOLEX & WIREFRAME)
-        // ==========================================
         var currentTrack = null;
         var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
         var isWireframeMode = false;
@@ -265,7 +273,7 @@
             rotY = 0.0; rotX = 0.5; isWireframeMode = false;
             document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
             document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
-            document.getElementById('modal-cell-details').innerText = "Velocità: " + track.speed_kmh + " km/h (" + track.direction_deg + "°) | VIL: " + track.vil + " kg/m² | Echo Top: " + track.echo_top + " km";
+            document.getElementById('modal-cell-details').innerText = "Vel: " + track.speed_kmh + " km/h | VIL: " + track.vil + " | Top: " + track.echo_top + " km";
             document.getElementById('viewer-3d-modal').style.display = 'flex';
             render3D();
         }
@@ -318,7 +326,6 @@
             if (!isWireframeMode) render3D();
         }, { passive: true });
 
-        // 1. Motorino Volex 3D Originale (Colonne stabili)
         function render3D() {
             if (!currentTrack) return;
             canvas.width = container.clientWidth;
@@ -368,7 +375,6 @@
             });
         }
 
-        // 2. Motorino Wireframe 3D Avanzato (Scansione laser e griglia)
         function runWireframeLoop() {
             if (!isWireframeMode) return;
             scanAngle += 0.03;
@@ -420,7 +426,6 @@
                 ctx.stroke();
             });
 
-            // Linea laser di scansione orizzontale in stile CAD
             let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
             ctx.strokeStyle = '#00ffcc';
             ctx.lineWidth = 2;
