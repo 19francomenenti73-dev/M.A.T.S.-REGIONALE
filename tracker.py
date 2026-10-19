@@ -170,6 +170,107 @@ def analyze_radar():
                             [lat, lon]
                         ]
                         forecast_path = [
-                            [lat + lat_dir * step_dist * 1, lon + lat_dir * step_dist * 1],
+                            [lat + lat_dir * step_dist * 1, lon + lon_dir * step_dist * 1],
+                            [lat + lat_dir * step_dist * 2, lon + lon_dir * step_dist * 2],
+                            [lat + lat_dir * step_dist * 3, lon + lon_dir * step_dist * 3]
+                        ]
+                        coast_dist_scale = 2.5
+                        coast_target = [lat + lat_dir * coast_dist_scale, lon + lon_dir * coast_dist_scale]
+                        eta_hours = round((coast_dist_scale * 111.0) / max(10, speed_val), 1)
 
+                        patch_size = 15
+                        half_p = patch_size // 2
+                        px_c_val = int(x_c + w / 2.0)
+                        py_c_val = int(y_c + h / 2.0)
+                        x_min = max(0, px_c_val - half_p)
+                        x_max = min(img.shape[1], px_c_val + half_p + 1)
+                        y_min = max(0, py_c_val - half_p)
+                        y_max = min(img.shape[0], py_c_val + half_p + 1)
+
+                        local_patch = img[y_min:y_max, x_min:x_max]
+                        grid_matrix = []
+                        for row in local_patch:
+                            row_vals = []
+                            for pixel in row:
+                                pr, pg, pb, pa = pixel[2], pixel[1], pixel[0], pixel[3]
+                                if pa < 20:
+                                    row_vals.append(0)
+                                else:
+                                    if pr > 200 and pb > 200: row_vals.append(12)
+                                    elif pr > 200 and pg < 100: row_vals.append(10)
+                                    elif pr > 200 and pg > 150: row_vals.append(8)
+                                    elif pg > 200: row_vals.append(6)
+                                    elif pb > 200 and pg > 150: row_vals.append(4)
+                                    elif pb > 150: row_vals.append(2)
+                                    else: row_vals.append(1)
+                            row_vals.extend([0] * (patch_size - len(row_vals)))
+                            grid_matrix.append(row_vals[:patch_size])
+
+                        while len(grid_matrix) < patch_size:
+                            grid_matrix.append([0] * patch_size)
+
+                        flat_m = [val for row in grid_matrix for val in row if val > 0]
+                        max_voxel = max(flat_m) if flat_m else 4
                         
+                        if max_voxel >= 12: real_dbz = 55
+                        elif max_voxel >= 10: real_dbz = 48
+                        elif max_voxel >= 8: real_dbz = 40
+                        elif max_voxel >= 6: real_dbz = 34
+                        elif max_voxel >= 4: real_dbz = 26
+                        else: real_dbz = 18
+
+                        dbz_ratio = real_dbz / 10.0
+                        linear_z = 10.0 ** dbz_ratio
+                        z_div = linear_z / 200.0
+                        rain_rate = round(z_div ** (1.0 / 1.6), 1)
+
+                        data_item = {
+                            "id": "Core-" + str(z) + str(x) + str(y) + "-" + str(cell_id_counter),
+                            "center": [lat, lon],
+                            "speed_kmh": speed_val,
+                            "direction_deg": direction_deg,
+                            "intensity": str(real_dbz) + " dBZ (RR: " + str(rain_rate) + " mm/h) - " + classification,
+                            "vil": vil_val,
+                            "echo_top": echo_top_val,
+                            "eta_hours": eta_hours,
+                            "coast_target": coast_target,
+                            "grid_matrix": grid_matrix,
+                            "actual_path": actual_path,
+                            "forecast_path": forecast_path
+                        }
+
+                        if not any(abs(m["center"][0] - lat) < 0.12 and abs(m["center"][1] - lon) < 0.12 for m in global_structures):
+                            global_structures.append(data_item)
+                            cell_id_counter += 1
+        except Exception as tile_err:
+            print("Errore tile: " + str(tile_err))
+
+    for reg_name, bbox in REGIONS_BBOX.items():
+        reg_structures = []
+        if reg_name == "Nazionale":
+            reg_structures = global_structures
+        else:
+            for st in global_structures:
+                lat, lon = st["center"]
+                if bbox["lat_min"] <= lat <= bbox["lat_max"] and bbox["lon_min"] <= lon <= bbox["lon_max"]:
+                    reg_structures.append(st)
+
+        reg_data = {
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "radar_tile": radar_info,
+            "bbox": bbox,
+            "macro_structures": reg_structures
+        }
+
+        clean_name = reg_name.lower().replace(" ", "_").replace("'", "").replace("-", "_")
+        filename = "centroids.json" if reg_name == "Nazionale" else "centroids_" + clean_name + ".json"
+        
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(reg_data, f, indent=4, ensure_ascii=False)
+
+    print("MATS Engine: Elaborazione completata. Strutture reali rilevate: " + str(len(global_structures)))
+
+if __name__ == "__main__":
+    analyze_radar()
+    sys.exit(0)
+        
