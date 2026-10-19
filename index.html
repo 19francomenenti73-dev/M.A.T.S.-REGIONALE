@@ -189,5 +189,240 @@
 <body>
 
     <!-- Header con Brand e Slider Regioni -->
-    <div class="
-        
+    <div class="mats-header-container">
+        <div class="mats-brand">
+            <div class="mats-title">M.A.T.S. REGIONI</div>
+            <div class="mats-subtitle">Holographic Wireframe 3D Edition</div>
+        </div>
+        <div class="regions-slider" id="regions-slider">
+            <div class="region-pill active" onclick="switchRegion('Nazionale', 4, [42.5, 12.5], this)">Nazionale</div>
+            <div class="region-pill" onclick="switchRegion('Abruzzo', 8, [42.35, 13.4], this)">Abruzzo</div>
+            <div class="region-pill" onclick="switchRegion('Basilicata', 8, [40.6, 16.5], this)">Basilicata</div>
+            <div class="region-pill" onclick="switchRegion('Calabria', 8, [39.0, 16.5], this)">Calabria</div>
+            <div class="region-pill" onclick="switchRegion('Campania', 8, [40.8, 14.8], this)">Campania</div>
+            <div class="region-pill" onclick="switchRegion('Emilia-Romagna', 8, [44.5, 11.3], this)">Emilia-Romagna</div>
+            <div class="region-pill" onclick="switchRegion('Friuli-Venezia Giulia', 8, [46.1, 13.2], this)">Friuli-V. Giulia</div>
+            <div class="region-pill" onclick="switchRegion('Lazio', 8, [41.9, 12.5], this)">Lazio</div>
+            <div class="region-pill" onclick="switchRegion('Liguria', 8, [44.4, 8.9], this)">Liguria</div>
+            <div class="region-pill" onclick="switchRegion('Lombardia', 8, [45.5, 9.7], this)">Lombardia</div>
+            <div class="region-pill" onclick="switchRegion('Marche', 8, [43.4, 13.3], this)">Marche</div>
+            <div class="region-pill" onclick="switchRegion('Molise', 8, [41.6, 14.6], this)">Molise</div>
+            <div class="region-pill" onclick="switchRegion('Piemonte', 8, [45.0, 7.8], this)">Piemonte</div>
+            <div class="region-pill" onclick="switchRegion('Puglia', 8, [41.1, 16.8], this)">Puglia</div>
+            <div class="region-pill" onclick="switchRegion('Sardegna', 8, [40.1, 9.1], this)">Sardegna</div>
+            <div class="region-pill" onclick="switchRegion('Sicilia', 8, [37.6, 14.0], this)">Sicilia</div>
+            <div class="region-pill" onclick="switchRegion('Toscana', 8, [43.4, 11.2], this)">Toscana</div>
+            <div class="region-pill" onclick="switchRegion('Trentino-Alto Adige', 8, [46.5, 11.3], this)">Trentino-A.Adige</div>
+            <div class="region-pill" onclick="switchRegion('Umbria', 8, [43.1, 12.4], this)">Umbria</div>
+            <div class="region-pill" onclick="switchRegion('Valle d\'Aosta', 8, [45.7, 7.3], this)">Valle d'Aosta</div>
+            <div class="region-pill" onclick="switchRegion('Veneto', 8, [45.5, 11.8], this)">Veneto</div>
+        </div>
+    </div>
+
+    <!-- Mappa -->
+    <div id="map"></div>
+
+    <!-- Crediti Ancorati in Basso a Destra -->
+    <div class="source-credits">
+        Dati: <a href="https://www.rainviewer.com" target="_blank">RainViewer API</a> | Mappa: Esri Topo Oro &amp; Labels
+    </div>
+
+    <!-- Banner Inferiore -->
+    <div class="map-banner">
+        <div>
+            <span><b>Core 3D Attivi:</b> <span id="active-count" class="counter-badge">0</span></span>
+            <span id="last-update" style="font-size: 10px; color: #888; margin-left: 8px; padding-left: 8px; border-left: 1px solid #444;"></span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <div class="legend-item"><span style="width: 10px; height: 3px; background: #0066cc;"></span> Storico</div>
+            <div class="legend-item"><span style="width: 8px; height: 8px; background: #ffd700; border-radius: 50%;"></span> Centroide</div>
+            <div class="legend-item"><span style="width: 10px; height: 3px; background: #ff3333;"></span> Predittivo</div>
+            <div class="legend-item"><span style="width: 8px; height: 8px; background: #ff00ff; border-radius: 50%;"></span> Grandine / Rotazione</div>
+        </div>
+    </div>
+
+    <!-- Modal Visore Wireframe 3D -->
+    <div id="viewer-3d-modal">
+        <div class="modal-info-bar">
+            <div>
+                <b id="modal-cell-id" style="font-size: 15px; color: #ffd700;">Hologram Core 3D</b>
+                <div id="modal-cell-details" style="font-size: 11px; color: #bbb;">-</div>
+            </div>
+            <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
+        </div>
+        <div id="canvas-3d-container"><canvas id="viewer-canvas"></canvas></div>
+        <div class="controls-hint">TRASCIINA PER RUOTARE A 360° | WIREFRAME OLOGRAFICO DI PRECISIONE</div>
+    </div>
+
+    <!-- Leaflet & Script -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        // 1. Mappa Base Oro-Topografica
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: ''
+        }).addTo(map);
+
+        // 2. Layer Superiore con Città, Paesi e Confini
+        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            opacity: 0.95,
+            zIndex: 300
+        }).addTo(map);
+
+        var radarLayer = null;
+        var cellsLayer = L.layerGroup().addTo(map);
+        var vectorsLayer = L.layerGroup().addTo(map);
+        var currentRegionFile = 'centroids.json';
+
+        function switchRegion(regionName, zoomLevel, centerCoords, pillElement) {
+            document.querySelectorAll('.region-pill').forEach(p => p.classList.remove('active'));
+            if (pillElement) pillElement.classList.add('active');
+
+            map.setView(centerCoords, zoomLevel);
+            
+            if (regionName === 'Nazionale') {
+                currentRegionFile = 'centroids.json';
+            } else {
+                let safeName = regionName.toLowerCase().replace(/[\s\-']+/g, '_');
+                currentRegionFile = `centroids_${safeName}.json`;
+            }
+            loadTrackerData();
+        }
+
+        function getColor(val) {
+            if (val >= 12) return '#ff00ff';
+            if (val >= 10) return '#ff3300';
+            if (val >= 8)  return '#ffd700';
+            if (val >= 6)  return '#00ff00';
+            if (val >= 4)  return '#00ffff';
+            return '#0066ff';
+        }
+
+        function getMaxVal(matrix) {
+            if (!matrix || matrix.length === 0) return 4;
+            let max = 0;
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[r].length; c++) {
+                    if (matrix[r][c] > max) max = matrix[r][c];
+                }
+            }
+            return max > 0 ? max : 4;
+        }
+
+        function loadTrackerData() {
+            fetch(currentRegionFile + '?' + new Date().getTime())
+                .then(res => {
+                    if (!res.ok) throw new Error("File non trovato: " + currentRegionFile);
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
+                        let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
+                        if (!radarLayer) {
+                            radarLayer = L.tileLayer(radarUrl, { opacity: 0.68, zIndex: 200 }).addTo(map);
+                        } else {
+                            radarLayer.setUrl(radarUrl);
+                        }
+                    }
+
+                    cellsLayer.clearLayers();
+                    vectorsLayer.clearLayers();
+
+                    let structures = data.macro_structures || [];
+                    document.getElementById('active-count').innerText = structures.length;
+                    document.getElementById('last-update').innerText = 'Aggiornato: ' + new Date().toLocaleTimeString();
+
+                    structures.forEach(track => {
+                        let center = track.center;
+                        let peakVal = getMaxVal(track.grid_matrix);
+                        let cellColor = getColor(peakVal);
+                        let isSevere = track.hail_risk || track.hook_signature;
+
+                        if (track.actual_path && track.actual_path.length > 0) {
+                            L.polyline(track.actual_path, { color: '#0066cc', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
+                        }
+
+                        if (center && center.length === 2) {
+                            let iconClass = isSevere ? 'centroid-ring centroid-severe' : 'centroid-ring';
+                            let centroidIcon = L.divIcon({
+                                className: 'custom-centroid',
+                                html: `<div class="${iconClass}" style="background-color: ${cellColor};" title="${track.id}"></div>`,
+                                iconSize: [16, 16], iconAnchor: [8, 8]
+                            });
+                            let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(cellsLayer);
+                            marker.on('click', () => open3DViewer(track));
+                        }
+
+                        if (track.forecast_path && track.forecast_path.length > 0 && center) {
+                            L.polyline([center, ...track.forecast_path], { color: '#ff3333', weight: 3, dashArray: '5, 6', opacity: 0.9 }).addTo(vectorsLayer);
+                        }
+
+                        if (track.coast_target && center) {
+                            let target = track.coast_target;
+                            let dLat = target[0] - center[0], dLon = target[1] - center[1];
+                            let perpLat = -dLon * 0.25, perpLon = dLat * 0.25;
+                            L.polygon([center, [target[0] + perpLat, target[1] + perpLon], [target[0] - perpLat, target[1] - perpLon]], {
+                                color: '#ff8c00', fillColor: '#ff8c00', fillOpacity: 0.18, weight: 1.5, dashArray: '4, 4'
+                            }).addTo(vectorsLayer);
+
+                            let etaIcon = L.divIcon({
+                                className: 'eta-badge',
+                                html: `<div style="background: rgba(8,8,12,0.92); border: 1px solid #ffd700; color: #ffd700; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; white-space: nowrap;">ETA: ${track.eta_hours || '?'}h</div>`,
+                                iconSize: [60, 20], iconAnchor: [30, 10]
+                            });
+                            L.marker(target, { icon: etaIcon }).addTo(vectorsLayer);
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.warn('Avviso caricamento JSON:', err);
+                    cellsLayer.clearLayers();
+                    vectorsLayer.clearLayers();
+                    document.getElementById('active-count').innerText = "0";
+                    document.getElementById('last-update').innerText = 'Aggiornato: ' + new Date().toLocaleTimeString();
+                });
+        }
+
+        // ==========================================
+        // MOTORE GRAFICO WIREFRAME OLOGRAFICO 3D
+        // ==========================================
+        var currentTrack = null, rotX = 0.55, rotY = 0.0, isDragging = false, lastMouseX, lastMouseY;
+
+        function open3DViewer(track) {
+            currentTrack = track;
+            rotY = 0.0; rotX = 0.55;
+            document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
+            document.getElementById('modal-cell-details').innerText = `Vel: ${track.speed_kmh}km/h | VIL: ${track.vil} kg/m² (Densità: ${track.vil_density || 'N/D'}) | Top: ${track.echo_top} km`;
+            document.getElementById('viewer-3d-modal').style.display = 'flex';
+            renderWireframe3D();
+        }
+        function close3DViewer() { document.getElementById('viewer-3d-modal').style.display = 'none'; currentTrack = null; }
+
+        var canvas = document.getElementById('viewer-canvas');
+        var ctx = canvas.getContext('2d');
+        var container = document.getElementById('canvas-3d-container');
+
+        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            rotY += (e.clientX - lastMouseX) * 0.008;
+            rotX += (e.clientY - lastMouseY) * 0.005;
+            rotX = Math.max(0.15, Math.min(0.85, rotX));
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+            renderWireframe3D();
+        });
+
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
+            }
+        });
+        window.addEventListener('touchend', () => isDragging = false);
+        win
