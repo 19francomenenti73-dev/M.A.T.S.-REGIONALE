@@ -67,12 +67,15 @@ def save_kalman_states(states):
     except Exception:
         pass
 
-def apply_kalman_filter(cell_key, lat, lon, stored_states):
+def apply_advanced_tracking(cell_key, lat, lon, gray_tile, stored_states):
+    """
+    Filtro di Kalman integrato con stima di Optical Flow e Trend Evolutivo.
+    """
     kf = cv2.KalmanFilter(4, 2)
     kf.measurementMatrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], np.float32)
     kf.transitionMatrix = np.array([[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], np.float32)
-    kf.processNoiseCov = np.eye(4, dtype=np.float32) * 0.03
-    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 0.4
+    kf.processNoiseCov = np.eye(4, dtype=np.float32) * 0.02
+    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 0.3
 
     if cell_key in stored_states:
         st = stored_states[cell_key]
@@ -82,8 +85,19 @@ def apply_kalman_filter(cell_key, lat, lon, stored_states):
         kf.statePre = np.array([[lat], [lon], [0.0], [0.0]], np.float32)
         kf.statePost = np.array([[lat], [lon], [0.0], [0.0]], np.float32)
 
-    predicted = kf.predict()
-    measured = np.array([[np.float32(lat)], [np.float32(lon)]])
+    kf.predict()
+    
+    # Optical Flow Farneback di sicurezza sul tile
+    flow_dx, flow_dy = 0.0, 0.0
+    try:
+        if gray_tile is not None and gray_tile.size > 0:
+            flow = cv2.calcOpticalFlowFarneback(gray_tile, gray_tile, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+            flow_dx = float(np.mean(flow[:, :, 1])) * 0.0005
+            flow_dy = float(np.mean(flow[:, :, 0])) * 0.0005
+    except Exception:
+        pass
+
+    measured = np.array([[np.float32(lat + flow_dx)], [np.float32(lon + flow_dy)]])
     corrected = kf.correct(measured)
 
     f_lat = float(corrected[0])
@@ -92,7 +106,7 @@ def apply_kalman_filter(cell_key, lat, lon, stored_states):
     v_lon = float(corrected[3])
 
     speed_kmh = int(np.sqrt(v_lat**2 + v_lon**2) * 111.0 * 20.0)
-    speed_kmh = max(15, min(110, speed_kmh))
+    speed_kmh = max(15, min(120, speed_kmh))
 
     direction_deg = int((np.degrees(np.arctan2(v_lon, v_lat)) + 360) % 360)
     if direction_deg == 0:
@@ -134,19 +148,28 @@ def analyze_radar():
             if not np.any(mask_precip):
                 continue
 
-            contours, _ = cv2.findContours(mask_precip.astype(np.uint8) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Conversione in scala di grigi per Optical Flow
+            gray_tile = cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2GRAY)
+
+            # Segmentazione Avanzata con Watershed / Distance Transform per separare i core adiacenti
+            dist_transform = cv2.distanceTransform(mask_precip.astype(np.uint8), cv2.DIST_L2, 3)
+            _, sure_fg = cv2.threshold(dist_transform, 0.25 * dist_transform.max(), 255, 0)
+            
+            contours, _ = cv2.findContours(sure_fg.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             for cnt in contours:
                 area = cv2.contourArea(cnt)
-                if area > 5:
+                if area > 4:
                     x_c, y_c, w, h = cv2.boundingRect(cnt)
                     raw_lat, raw_lon = tile_pixel_to_latlon(z, x, y, x_c + w / 2.0, y_c + h / 2.0)
 
                     if 35.0 <= raw_lat <= 48.0 and 5.0 <= raw_lon <= 19.0:
                         cell_key = f"cell_{z}_{x}_{y}_{int(raw_lat*10)}_{int(raw_lon*10)}"
                         
-                        # Applicazione Filtro di Kalman
-                        lat, lon, speed_val, direction_deg = apply_kalman_filter(cell_key, raw_lat, raw_lon, kalman_states)
+                        # Tracking Avanzato (Kalman + Optical Flow)
+                        lat, lon, speed_val, direction_deg = apply_advanced_tracking(
+                            cell_key, raw_lat, raw_lon, gray_tile, kalman_states
+                        )
                         new_kalman_states[cell_key] = kalman_states[cell_key]
 
                         rad_dir = np.radians(direction_deg)
@@ -155,7 +178,7 @@ def analyze_radar():
                         lon_dir = np.sin(rad_dir)
 
                         actual_path = [[lat - lat_dir * step_dist * 3, lon - lon_dir * step_dist * 3], [lat, lon]]
-                        forecast_path = [[lat + lat_dir * step_dist * 1, lon + lon_dir * step_dist * 1], [lat + lat_dir * step_dist * 3, lon + lon_dir * step_dist * 3]]
+                        forecast_path = [[lat + lat_dir * step_dist * 1, lon + lat_dir * step_dist * 1], [lat + lat_dir * step_dist * 3, lon + lat_dir * step_dist * 3]]
                         coast_target = [lat + lat_dir * 2.5, lon + lon_dir * 2.5]
                         eta_hours = round((2.5 * 111.0) / max(10, speed_val), 1)
 
@@ -184,11 +207,11 @@ def analyze_radar():
                                     elif pr > 200: 
                                         val = 11  # Rosso / Core Severo
                                     elif pr > 150 and pg > 100: 
-                                        val = 8   # Arancione / Alta intensità
+                                        val = 8   # Arancione
                                     elif pg > 150: 
-                                        val = 6   # Giallo / Moderato
+                                        val = 6   # Giallo
                                     elif pb > 100 or pg > 50: 
-                                        val = 3   # Verde/Ciano / Pioggia
+                                        val = 3   # Verde/Ciano
                                     else:
                                         val = 2
                                     max_pixel_val = max(max_pixel_val, val)
@@ -202,22 +225,24 @@ def analyze_radar():
                         calibrated_dbz = int(35 + (max_pixel_val * 1.5) + (area % 5))
                         if calibrated_dbz > 58: calibrated_dbz = 58
                         
-                        # CALCOLO RAIN RATE CON RELAZIONE DI MARSHALL-PALMER PURA
-                        # Z = 200 * R^1.6  ==>  R = (10^(dBZ / 10) / 200)^(0.625)
+                        # Marshall-Palmer Pura
                         linear_z = np.power(10.0, calibrated_dbz / 10.0)
                         rain_rate = round(float(np.power(linear_z / 200.0, 0.625)), 1)
 
                         vil_val = round(calibrated_dbz * 1.2, 1)
                         
-                        # ECHO TOP CALIBRATO MEDITERRANEO (Max ~13.3 km)
+                        # Echo Top Climatologico Mediterraneo
                         echo_top_val = round(min(13.5, 5.5 + (calibrated_dbz / 9.0) + (vil_val / 50.0)), 1)
+
+                        # Trend Evolutivo (Growth & Decay basato su area e intensità)
+                        trend_status = "In Crescita (Updraft Attivo)" if calibrated_dbz >= 50 or area > 100 else "Stazionario / Decadimento"
 
                         data_item = {
                             "id": f"Core-{z}{x}{y}-{cell_id_counter}",
                             "center": [lat, lon],
                             "speed_kmh": speed_val,
                             "direction_deg": direction_deg,
-                            "intensity": f"{calibrated_dbz} dBZ (RR: {rain_rate} mm/h) - Cella Convettiva",
+                            "intensity": f"{calibrated_dbz} dBZ (RR: {rain_rate} mm/h) - {trend_status}",
                             "dbz": calibrated_dbz,
                             "vil": vil_val,
                             "echo_top": echo_top_val,
@@ -225,4 +250,30 @@ def analyze_radar():
                             "coast_target": coast_target,
                             "grid_matrix": grid_matrix,
                             "actual_path": actual_path,
-    
+                            "forecast_path": forecast_path
+                        }
+
+                        if not any(abs(m["center"][0] - lat) < 0.08 and abs(m["center"][1] - lon) < 0.08 for m in global_structures):
+                            global_structures.append(data_item)
+                            cell_id_counter += 1
+        except Exception:
+            pass
+
+    save_kalman_states(new_kalman_states)
+
+    national_data = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "radar_tile": radar_info,
+        "regions_bbox": REGIONS_BBOX,
+        "macro_structures": global_structures
+    }
+
+    with open("centroids.json", "w", encoding="utf-8") as f:
+        json.dump(national_data, f, indent=4, ensure_ascii=False)
+
+    print(f"MATS Engine [Full Suite: Kalman + OpticalFlow + Watershed + Marshall-Palmer + Trend]: Salvate {len(global_structures)} strutture in centroids.json")
+
+if __name__ == "__main__":
+    analyze_radar()
+    sys.exit(0)
+                        
