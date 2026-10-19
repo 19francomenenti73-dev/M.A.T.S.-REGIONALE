@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>M.A.T.S. Regioni - Holographic Wireframe 3D Edition</title>
+    <title>M.A.T.S. Regioni - Mesoscale Advanced Tracking System</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
@@ -12,12 +12,12 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
-            background: #050508;
+            background: #08080a;
             color: #f0f0f0;
             overflow: hidden;
         }
 
-        #map { width: 100%; height: 100vh; background: #050508; }
+        #map { width: 100%; height: 100vh; background: #08080a; }
 
         /* Header Operativo e Menu a Scorrimento */
         .mats-header-container {
@@ -35,7 +35,7 @@
         }
 
         .mats-brand {
-            background: rgba(8, 8, 12, 0.92);
+            background: rgba(12, 12, 15, 0.92);
             padding: 6px 20px;
             border-radius: 10px;
             border: 1px solid rgba(212, 175, 55, 0.35);
@@ -79,7 +79,7 @@
         .regions-slider::-webkit-scrollbar { display: none; }
 
         .region-pill {
-            background: rgba(15, 15, 20, 0.9);
+            background: rgba(20, 20, 25, 0.88);
             border: 1px solid rgba(212, 175, 55, 0.25);
             color: #ccc;
             padding: 5px 12px;
@@ -106,7 +106,7 @@
             left: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(8, 8, 12, 0.92);
+            background: rgba(12, 12, 15, 0.92);
             padding: 8px 14px;
             border-radius: 8px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.6);
@@ -124,7 +124,7 @@
         .counter-badge { font-weight: bold; color: #ffd700; font-size: 13px; }
         .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #bbb; }
 
-        /* Anelli Centroidi */
+        /* Anello Centroide con Allerte Grandine/Rotazione */
         .centroid-ring {
             width: 16px;
             height: 16px;
@@ -150,7 +150,7 @@
             100% { transform: scale(1.35); }
         }
 
-        /* Visore Wireframe 3D Full-Screen */
+        /* Visore 3D Full-Screen */
         #viewer-3d-modal {
             display: none;
             position: fixed;
@@ -192,7 +192,7 @@
     <div class="mats-header-container">
         <div class="mats-brand">
             <div class="mats-title">M.A.T.S. REGIONI</div>
-            <div class="mats-subtitle">Holographic Wireframe 3D Edition</div>
+            <div class="mats-subtitle">Mesoscale Advanced Tracking System &bull; Oro-Topographic Edition</div>
         </div>
         <div class="regions-slider" id="regions-slider">
             <div class="region-pill active" onclick="switchRegion('Nazionale', 4, [42.5, 12.5], this)">Nazionale</div>
@@ -251,7 +251,7 @@
             <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
         </div>
         <div id="canvas-3d-container"><canvas id="viewer-canvas"></canvas></div>
-        <div class="controls-hint">TRASCIINA PER RUOTARE A 360° | WIREFRAME OLOGRAFICO DI PRECISIONE</div>
+        <div class="controls-hint">TRASCINA PER RUOTARE A 360° | WIREFRAME OLOGRAFICO DI PRECISIONE</div>
     </div>
 
     <!-- Leaflet & Script -->
@@ -287,7 +287,8 @@
             if (regionName === 'Nazionale') {
                 currentRegionFile = 'centroids.json';
             } else {
-                let safeName = regionName.toLowerCase().replace(/[\s\-']+/g, '_');
+                // Sanificazione rigorosa coerente con il backend Python
+                let safeName = regionName.toLowerCase().replace(/-/g, '_').replace(/\s+/g, '_').replace(/'/g, '');
                 currentRegionFile = `centroids_${safeName}.json`;
             }
             loadTrackerData();
@@ -316,7 +317,7 @@
         function loadTrackerData() {
             fetch(currentRegionFile + '?' + new Date().getTime())
                 .then(res => {
-                    if (!res.ok) throw new Error("File non trovato: " + currentRegionFile);
+                    if (!res.ok) throw new Error("File non trovato o non ancora generato: " + currentRegionFile);
                     return res.json();
                 })
                 .then(data => {
@@ -383,7 +384,7 @@
                     cellsLayer.clearLayers();
                     vectorsLayer.clearLayers();
                     document.getElementById('active-count').innerText = "0";
-                    document.getElementById('last-update').innerText = 'Aggiornato: ' + new Date().toLocaleTimeString();
+                    document.getElementById('last-update').innerText = 'In attesa telemetria...';
                 });
         }
 
@@ -420,9 +421,4 @@
         container.addEventListener('touchstart', e => {
             if (e.touches.length === 1) {
                 isDragging = true;
-                lastMouseX = e.touches[0].clientX;
-                lastMouseY = e.touches[0].clientY;
-            }
-        });
-        window.addEventListener('touchend', () => isDragging = false);
-        win
+                lastMouseX = e.touches[0].clie
