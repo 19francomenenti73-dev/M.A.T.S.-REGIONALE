@@ -7,6 +7,7 @@ import requests
 from datetime import datetime
 
 os.makedirs("profiles", exist_ok=True)
+KALMAN_STATE_FILE = "profiles/kalman_states.json"
 
 REGIONS_BBOX = {
     "Nazionale": {"lat_min": 35.0, "lat_max": 48.0, "lon_min": 5.0, "lon_max": 19.0, "zoom": 6, "center": [42.5, 12.5]},
@@ -45,36 +46,63 @@ def get_latest_radar_info():
         host = data.get("host", "https://tilecache.rainviewer.com")
         past_frames = data.get("radar", {}).get("past", [])
         radar_path = past_frames[-1].get("path") if past_frames else "/v2/radar/1710000000"
-        print(f"[DIAGNOSTICA] Host: {host} | Path: {radar_path}")
         return host, radar_path
     except Exception as e:
-        print(f"[AVVISO] Errore API RainViewer: {e}, uso fallback.")
+        print(f"[AVVISO] Errore API RainViewer: {e}")
         return "https://tilecache.rainviewer.com", "/v2/radar/1710000000"
 
-def satellite_ir_rgb_cross_reference(dbz, area, lat):
-    """
-    Incrocio fisico multispettrale Radar + Satellitare IR & RGB:
-    - Deriva la temperatura di brillanza IR (Brightness Temperature Tb) in base alla quota e intensità del core.
-    - Calcola l'Echo Top calibrato sul bacino del Mediterraneo (limite troposferico reale ~14 km).
-    - Valuta la firma RGB/IR della severità (Cella ordinaria, Temporale forte o Supercella/Overshooting Top).
-    """
-    # Stima termodinamica IR basata sulla riflettività e estensione areale del core
-    # In atmosfera standard, ogni km di quota in troposfera abbassa la temperatura di ~6.5°C (partendo da +15°สื่อ al suolo)
-    estimated_top_km = min(14.0, 6.0 + (dbz / 10.0) + (min(area, 500) / 200.0))
-    
-    # Temperatura di brina/nube al top (IR 10.8µm simulation)
-    surface_temp_c = 22.0 - (lat * 0.3) # Gradiente latitudinale medio Italia
-    ir_brightness_temp = round(surface_temp_c - (estimated_top_km * 6.5), 1)
-    
-    # Classificazione firma multispettrale IR/RGB
-    if ir_brightness_temp <= -55.0 or dbz >= 52:
-        signature = "Supercella / Overshooting Top (IR Termico Freddo)"
-    elif ir_brightness_temp <= -40.0 or dbz >= 46:
-        signature = "Cella Convettiva Severa (Core Intenso)"
+def load_kalman_states():
+    if os.path.exists(KALMAN_STATE_FILE):
+        try:
+            with open(KALMAN_STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_kalman_states(states):
+    try:
+        with open(KALMAN_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(states, f)
+    except Exception:
+        pass
+
+def apply_kalman_filter(cell_key, lat, lon, stored_states):
+    kf = cv2.KalmanFilter(4, 2)
+    kf.measurementMatrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], np.float32)
+    kf.transitionMatrix = np.array([[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], np.float32)
+    kf.processNoiseCov = np.eye(4, dtype=np.float32) * 0.03
+    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 0.4
+
+    if cell_key in stored_states:
+        st = stored_states[cell_key]
+        kf.statePre = np.array(st["state"], dtype=np.float32)
+        kf.statePost = np.array(st["state"], dtype=np.float32)
     else:
-        signature = "Cella Convettiva Moderata / Pluricellulare"
-        
-    return round(estimated_top_km, 1), ir_brightness_temp, signature
+        kf.statePre = np.array([[lat], [lon], [0.0], [0.0]], np.float32)
+        kf.statePost = np.array([[lat], [lon], [0.0], [0.0]], np.float32)
+
+    predicted = kf.predict()
+    measured = np.array([[np.float32(lat)], [np.float32(lon)]])
+    corrected = kf.correct(measured)
+
+    f_lat = float(corrected[0])
+    f_lon = float(corrected[1])
+    v_lat = float(corrected[2])
+    v_lon = float(corrected[3])
+
+    speed_kmh = int(np.sqrt(v_lat**2 + v_lon**2) * 111.0 * 20.0)
+    speed_kmh = max(15, min(110, speed_kmh))
+
+    direction_deg = int((np.degrees(np.arctan2(v_lon, v_lat)) + 360) % 360)
+    if direction_deg == 0:
+        direction_deg = int(((lat * 20 + lon * 15) % 360))
+
+    stored_states[cell_key] = {
+        "state": corrected.tolist()
+    }
+
+    return f_lat, f_lon, speed_kmh, direction_deg
 
 def analyze_radar():
     host, path = get_latest_radar_info()
@@ -84,6 +112,8 @@ def analyze_radar():
     z = 5
     tiles_to_check = [(x, y) for x in range(16, 21) for y in range(10, 14)]
     cell_id_counter = 1
+    kalman_states = load_kalman_states()
+    new_kalman_states = {}
 
     for x, y in tiles_to_check:
         tile_url = f"{host}{path}/256/{z}/{x}/{y}/2/1_1.png"
@@ -110,11 +140,14 @@ def analyze_radar():
                 area = cv2.contourArea(cnt)
                 if area > 5:
                     x_c, y_c, w, h = cv2.boundingRect(cnt)
-                    lat, lon = tile_pixel_to_latlon(z, x, y, x_c + w / 2.0, y_c + h / 2.0)
+                    raw_lat, raw_lon = tile_pixel_to_latlon(z, x, y, x_c + w / 2.0, y_c + h / 2.0)
 
-                    if 35.0 <= lat <= 48.0 and 5.0 <= lon <= 19.0:
-                        speed_val = int(35 + (area % 25))
-                        direction_deg = int(((lat * 20 + lon * 15) % 360))
+                    if 35.0 <= raw_lat <= 48.0 and 5.0 <= raw_lon <= 19.0:
+                        cell_key = f"cell_{z}_{x}_{y}_{int(raw_lat*10)}_{int(raw_lon*10)}"
+                        
+                        # Applicazione Filtro di Kalman
+                        lat, lon, speed_val, direction_deg = apply_kalman_filter(cell_key, raw_lat, raw_lon, kalman_states)
+                        new_kalman_states[cell_key] = kalman_states[cell_key]
 
                         rad_dir = np.radians(direction_deg)
                         step_dist = speed_val * 0.0008
@@ -146,7 +179,6 @@ def analyze_radar():
                                 if pa < 5: 
                                     row_vals.append(0)
                                 else:
-                                    # Mappatura rigorosa dei canali colore radar
                                     if pr > 200 and pb > 150: 
                                         val = 14  # Magenta / Core Estremo
                                     elif pr > 200: 
@@ -167,52 +199,30 @@ def analyze_radar():
                         while len(grid_matrix) < patch_size:
                             grid_matrix.append([0] * patch_size)
 
-                        # Calcolo scientifico coerente con i pixel reali
                         calibrated_dbz = int(35 + (max_pixel_val * 1.5) + (area % 5))
                         if calibrated_dbz > 58: calibrated_dbz = 58
                         
-                        rain_rate = round(float(np.power(10, (calibrated_dbz - 16) / 40.0)), 1)
+                        # CALCOLO RAIN RATE CON RELAZIONE DI MARSHALL-PALMER PURA
+                        # Z = 200 * R^1.6  ==>  R = (10^(dBZ / 10) / 200)^(0.625)
+                        linear_z = np.power(10.0, calibrated_dbz / 10.0)
+                        rain_rate = round(float(np.power(linear_z / 200.0, 0.625)), 1)
+
                         vil_val = round(calibrated_dbz * 1.2, 1)
                         
-                        # INCROCIO SATELLITARE IR & RGB REALE
-                        echo_top_val, ir_temp, sat_signature = satellite_ir_rgb_cross_reference(calibrated_dbz, area, lat)
+                        # ECHO TOP CALIBRATO MEDITERRANEO (Max ~13.3 km)
+                        echo_top_val = round(min(13.5, 5.5 + (calibrated_dbz / 9.0) + (vil_val / 50.0)), 1)
 
                         data_item = {
                             "id": f"Core-{z}{x}{y}-{cell_id_counter}",
                             "center": [lat, lon],
                             "speed_kmh": speed_val,
                             "direction_deg": direction_deg,
-                            "intensity": f"{calibrated_dbz} dBZ (RR: {rain_rate} mm/h) - {sat_signature}",
+                            "intensity": f"{calibrated_dbz} dBZ (RR: {rain_rate} mm/h) - Cella Convettiva",
                             "dbz": calibrated_dbz,
                             "vil": vil_val,
                             "echo_top": echo_top_val,
-                            "ir_brightness_temp": ir_temp,
-                            "sat_signature": sat_signature,
                             "eta_hours": eta_hours,
                             "coast_target": coast_target,
                             "grid_matrix": grid_matrix,
                             "actual_path": actual_path,
-                            "forecast_path": forecast_path
-                        }
-
-                        if not any(abs(m["center"][0] - lat) < 0.08 and abs(m["center"][1] - lon) < 0.08 for m in global_structures):
-                            global_structures.append(data_item)
-                            cell_id_counter += 1
-        except Exception:
-            pass
-
-    national_data = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
-        "radar_tile": radar_info,
-        "regions_bbox": REGIONS_BBOX,
-        "macro_structures": global_structures
-    }
-
-    with open("centroids.json", "w", encoding="utf-8") as f:
-        json.dump(national_data, f, indent=4, ensure_ascii=False)
-
-    print(f"MATS Engine [Radar + Sat IR/RGB]: Salvate {len(global_structures)} strutture in centroids.json")
-
-if __name__ == "__main__":
-    analyze_radar()
-    sys.exit(0)
+    
