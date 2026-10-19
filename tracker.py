@@ -212,57 +212,5 @@ def analyze_radar():
                         flat_m = [val for row in grid_matrix for val in row if val > 0]
                         max_voxel = max(flat_m) if flat_m else 4
                         real_dbz = 55 if max_voxel >= 12 else (48 if max_voxel >= 10 else (40 if max_voxel >= 8 else (34 if max_voxel >= 6 else (26 if max_voxel >= 4 else 18))))
-                        rain_rate = round(((10.0 ** (real_dbz / 10.0)) / 200.0) ** (1.0 / 1.6), 1)
-
-                        data_item = {
-                            "id": "Core-" + str(z) + str(x) + str(y) + "-" + str(cell_id_counter),
-                            "center": [lat, lon],
-                            "speed_kmh": speed_val,
-                            "direction_deg": direction_deg,
-                            "intensity": str(real_dbz) + " dBZ (RR: " + str(rain_rate) + " mm/h) - " + classification,
-                            "vil": vil_val,
-                            "echo_top": echo_top_val,
-                            "eta_hours": eta_hours,
-                            "coast_target": coast_target,
-                            "grid_matrix": grid_matrix,
-                            "actual_path": actual_path,
-                            "forecast_path": forecast_path
-                        }
-
-                        if not any(abs(m["center"][0] - lat) < 0.12 and abs(m["center"][1] - lon) < 0.12 for m in global_structures):
-                            global_structures.append(data_item)
-                            cell_id_counter += 1
-        except Exception as tile_err:
-            print("Errore tile: " + str(tile_err))
-
-    for reg_name, bbox in REGIONS_BBOX.items():
-        reg_structures = []
-        if reg_name == "Nazionale":
-            reg_structures = global_structures
-        else:
-            for st in global_structures:
-                lat, lon = st["center"]
-                if bbox["lat_min"] <= lat <= bbox["lat_max"] and bbox["lon_min"] <= lon <= bbox["lon_max"]:
-                    reg_structures.append(st)
-            if not reg_structures and global_structures:
-                reg_structures = [global_structures[0]]
-
-        reg_data = {
-            "generated_at": datetime.utcnow().isoformat() + "Z",
-            "radar_tile": radar_info,
-            "bbox": bbox,
-            "macro_structures": reg_structures
-        }
-
-        clean_name = reg_name.lower().replace(" ", "_").replace("'", "").replace("-", "_")
-        filename = "centroids.json" if reg_name == "Nazionale" else "centroids_" + clean_name + ".json"
-        
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(reg_data, f, indent=4, ensure_ascii=False)
-
-    print("MATS Engine: Generati file per Nazionale e tutte le Regioni. Totale strutture: " + str(len(global_structures)))
-
-if __name__ == "__main__":
-    analyze_radar()
-    sys.exit(0)
-                                
+                        rain_rate = round(((10.0 ** (real_dbz / 10.0
+                                    
