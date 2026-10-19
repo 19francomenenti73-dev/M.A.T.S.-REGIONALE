@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>MATS 3D - Mesoscale Advanced Tracking System</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         html, body {
@@ -11,7 +12,7 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
-            background: #0a0a0a;
+            background: #000000;
             color: #fff;
             overflow: hidden;
         }
@@ -21,363 +22,223 @@
             height: 100vh;
         }
 
+        /* Header MATS */
         .mats-header {
             position: absolute;
-            top: 10px;
+            top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 1000;
+            zIndex: 1000;
             text-align: center;
             pointer-events: none;
             background: rgba(10, 10, 10, 0.85);
-            padding: 6px 20px;
-            border-radius: 10px;
+            padding: 8px 24px;
+            border-radius: 24px;
             border: 1px solid rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(6px);
+            backdrop-filter: blur(10px);
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
         }
 
         .mats-title {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 900;
             letter-spacing: 2px;
-            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #00ffff, #0000ff, #8b00ff);
+            background: linear-gradient(45deg, #ff8000, #ff1700, #ffff00, #00ff00, #00ffff, #007fff, #7b00ff);
             background-size: 400% 400%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: rainbow-pulse 3s ease infinite;
-            margin: 0;
-            line-height: 1;
         }
 
         .mats-subtitle {
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 700;
             color: #00bfff;
-            letter-spacing: 1.5px;
+            letter-spacing: 1.2px;
             text-transform: uppercase;
             margin-top: 2px;
         }
 
-        @keyframes rainbow-pulse {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .regions-nav-bar {
+        /* Navbar Regioni Superiore */
+        .region-nav {
             position: absolute;
-            top: 70px;
-            left: 10px;
-            right: 10px;
+            top: 78px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 1000;
             display: flex;
             gap: 6px;
             overflow-x: auto;
-            padding: 6px 4px;
+            max-width: 95vw;
+            padding: 6px 12px;
             background: rgba(15, 15, 15, 0.9);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(4px);
-            scrollbar-width: thin;
-            scrollbar-color: #00bfff rgba(0,0,0,0.3);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            scrollbar-width: none;
         }
-
-        .regions-nav-bar::-webkit-scrollbar { height: 4px; }
-        .regions-nav-bar::-webkit-scrollbar-thumb { background: #00bfff; border-radius: 2px; }
+        .region-nav::-webkit-scrollbar { display: none; }
 
         .region-btn {
-            background: rgba(30, 30, 30, 0.9);
+            background: rgba(30, 30, 30, 0.8);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ccc;
             padding: 6px 12px;
-            border-radius: 6px;
+            border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.2s ease;
+            transition: all 0.2s;
+        }
+        .region-btn:hover, .region-btn.active {
+            background: #00bfff;
+            color: #000;
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.5);
         }
 
-        .region-btn:hover { background: rgba(0, 191, 255, 0.3); color: #fff; border-color: #00bfff; }
-        .region-btn.active { background: #00bfff; color: #000; font-weight: 700; border-color: #fff; box-shadow: 0 0 10px rgba(0, 191, 255, 0.6); }
-
-        .source-credits {
-            position: absolute;
-            bottom: 6px;
-            right: 10px;
-            z-index: 1000;
-            font-size: 9px;
-            color: rgba(255, 255, 255, 0.5);
-            background: rgba(0, 0, 0, 0.6);
-            padding: 3px 8px;
-            border-radius: 4px;
-        }
-
-        .source-credits a { color: rgba(0, 191, 255, 0.8); text-decoration: none; }
-
+        /* Banner Inferiore */
         .map-banner {
             position: absolute;
-            bottom: 24px;
-            left: 10px;
-            right: 10px;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(18, 18, 18, 0.92);
-            padding: 8px 14px;
-            border-radius: 8px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-            border: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-            color: #ddd;
-            flex-wrap: wrap;
-            gap: 10px;
+            background: rgba(10,
+                                 <script>
+        const regionsList = [
+            "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", 
+            "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", 
+            "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", 
+            "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"
+        ];
+
+        // Coordinate approssimative dei centroidi regionali per il filtro zoom
+        const regionCoords = {
+            "Abruzzo": [42.35, 13.4], "Basilicata": [40.64, 16.55], "Calabria": [39.3, 16.5],
+            "Campania": [40.85, 14.26], "Emilia-Romagna": [44.49, 11.34], "Friuli-Venezia Giulia": [46.06, 13.23],
+            "Lazio": [41.9, 12.5], "Liguria": [44.4, 8.93], "Lombardia": [45.46, 9.19],
+            "Marche": [43.61, 13.51], "Molise": [41.56, 14.66], "Piemonte": [45.07, 7.68],
+            "Puglia": [41.12, 16.86], "Sardegna": [40.12, 9.01], "Sicilia": [37.59, 14.01],
+            "Toscana": [43.76, 11.25], "Trentino-Alto Adige": [46.49, 11.35], "Umbria": [43.11, 12.38],
+            "Valle d'Aosta": [45.73, 7.31], "Veneto": [45.44, 12.31]
+        };
+
+        let currentActiveRegion = 'Nazionale';
+        const navContainer = document.getElementById('region-nav-container');
+        regionsList.forEach(reg => {
+            let btn = document.createElement('button');
+            btn.className = 'region-btn';
+            btn.innerText = reg;
+            btn.onclick = (e) => filterRegion(reg, e.target);
+            navContainer.appendChild(btn);
+        });
+
+        function filterRegion(regName, btnElement) {
+            currentActiveRegion = regName;
+            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
+
+            if (regName === 'Nazionale') {
+                map.setView([42.5, 12.5], 6);
+            } else if (regionCoords[regName]) {
+                map.setView(regionCoords[regName], 8);
+            }
+            if (window.lastLoadedData) renderRegionalData(window.lastLoadedData);
         }
 
-        .counter-badge { font-weight: bold; color: #ff4d4d; font-size: 14px; }
-        .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #aaa; }
-
-        .centroid-ring {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 2px solid #ffffff;
-            cursor: pointer;
-            box-shadow: 0 0 10px rgba(0,0,0,0.9);
-            animation: ring-pulse 1.5s infinite ease-in-out;
-        }
-
-        @keyframes ring-pulse {
-            0% { transform: scale(0.85); opacity: 0.8; }
-            50% { transform: scale(1.25); opacity: 1; }
-            100% { transform: scale(0.85); opacity: 0.8; }
-        }
-
-        #viewer-3d-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(5, 5, 8, 0.96);
-            z-index: 9999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            touch-action: none;
-        }
-
-        #canvas-3d-container { width: 100%; height: 75vh; display: flex; justify-content: center; align-items: center; cursor: grab; position: relative; }
-        #canvas-3d-container:active { cursor: grabbing; }
-
-        .modal-info-bar {
-            position: absolute; top: 15px; left: 15px; right: 15px;
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(255, 255, 255, 0.05); padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .close-btn { background: #ff3333; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .holo-toggle-btn {
-            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
-            background: linear-gradient(135deg, #00bfff, #0044ff); color: #fff; border: 2px solid #ffffff;
-            padding: 10px 24px; border-radius: 25px; font-weight: 900; font-size: 13px; cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 191, 255, 0.7); z-index: 10000;
-        }
-        .controls-hint { position: absolute; bottom: 8px; font-size: 11px; color: #888; text-align: center; width: 100%; }
-    </style>
-</head>
-<body>
-
-    <div class="mats-header">
-        <div class="mats-title">MATS</div>
-        <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
-    </div>
-
-    <div class="regions-nav-bar" id="regions-bar">
-        <button class="region-btn active" onclick="selectRegion(this, 'Nazionale')">Nazionale</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Abruzzo')">Abruzzo</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Basilicata')">Basilicata</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Calabria')">Calabria</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Campania')">Campania</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Emilia-Romagna')">Emilia-Romagna</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Friuli-Venezia Giulia')">Friuli-Venezia Giulia</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Lazio')">Lazio</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Liguria')">Liguria</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Lombardia')">Lombardia</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Marche')">Marche</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Molise')">Molise</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Piemonte')">Piemonte</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Puglia')">Puglia</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Sardegna')">Sardegna</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Sicilia')">Sicilia</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Toscana')">Toscana</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Trentino-Alto Adige')">Trentino-Alto Adige</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Umbria')">Umbria</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Valle d\'Aosta')">Valle d'Aosta</button>
-        <button class="region-btn" onclick="selectRegion(this, 'Veneto')">Veneto</button>
-    </div>
-
-    <div id="map"></div>
-
-    <div class="source-credits">
-        Dati: <a href="https://www.rainviewer.com" target="_blank">RainViewer Radar API</a> | Mappa: &copy; Esri World Topo
-    </div>
-
-    <div class="map-banner">
-        <div>
-            <span><b>Strutture 3D Rilevate:</b> <span id="active-count" class="counter-badge">0</span></span>
-            <span id="last-update" style="font-size: 10px; color: #888; border-left: 1px solid #444; margin-left: 10px; padding-left: 8px;"></span>
-        </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <div class="legend-item"><span style="width: 12px; height: 3px; background: #0066cc;"></span> Storico</div>
-            <div class="legend-item"><span style="width: 8px; height: 8px; background: #ffcc00; border-radius: 50%;"></span> Centroide</div>
-            <div class="legend-item"><span style="width: 12px; height: 3px; background: #ff1a1a;"></span> Predittivo</div>
-            <div class="legend-item"><span style="width: 12px; height: 8px; background: rgba(255,100,0,0.3); border: 1px dashed #ff5500;"></span> Cono ETA Costa</div>
-        </div>
-    </div>
-
-    <div id="viewer-3d-modal">
-        <div class="modal-info-bar">
-            <div>
-                <b id="modal-cell-id" style="font-size: 16px; color: #00bfff;">Core 3D</b>
-                <div id="modal-cell-details" style="font-size: 12px; color: #ccc;">-</div>
-            </div>
-            <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
-        </div>
-        
-        <div id="canvas-3d-container">
-            <canvas id="viewer-canvas"></canvas>
-            <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">ATTIVA OLOGRAMMA LIVE</button>
-        </div>
-        <div class="controls-hint">Ruota liberamente a 360° | Ancorato al centro della base</div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script>
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
-        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: ''
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 18,
+            attribution: '&copy; OpenStreetMap & CartoDB'
         }).addTo(map);
 
-        var radarLayer = null;
-        var cellsLayer = L.layerGroup().addTo(map);
-        var vectorsLayer = L.layerGroup().addTo(map);
-        var cachedMasterData = null;
-        var currentSelectedRegion = "Nazionale";
-
-        function selectRegion(btnElement, regName) {
-            currentSelectedRegion = regName;
-            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
-            if (btnElement) btnElement.classList.add('active');
-            renderRegionalData();
-        }
+        let radarLayer = L.layerGroup().addTo(map);
+        let vectorsLayer = L.layerGroup().addTo(map);
 
         function getColor(val) {
-            if (val >= 10) return '#ff0000';
-            if (val >= 6)  return '#ffcc00';
-            return '#00ffff';
+            if (val > 10) return '#ff0000'; // Forte / Grandine
+            if (val > 6) return '#ffcc00';  // Moderato
+            return '#00bfff';                 // Debole
         }
 
-        function getMaxVal(matrix) {
-            if (!matrix || matrix.length === 0) return 4;
-            let max = 0;
-            for (let r = 0; r < matrix.length; r++) {
-                for (let c = 0; c < matrix[r].length; c++) {
-                    if (matrix[r][c] > max) max = matrix[r][c];
-                }
+        async function loadMasterData() {
+            try {
+                let res = await fetch('centroids.json?t=' + Date.now());
+                if (!res.ok) throw new Error("Errore caricamento dati master");
+                let data = await res.json();
+                window.lastLoadedData = data;
+                renderRegionalData(data);
+            } catch (err) {
+                console.log("In attesa del primo aggiornamento pipeline...", err);
             }
-            return max > 0 ? max : 4;
         }
 
-        function loadMasterData() {
-            fetch('centroids.json?' + new Date().getTime())
-                .then(res => res.json())
-                .then(data => {
-                    cachedMasterData = data;
-                    if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
-                        let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
-                        if (!radarLayer) {
-                            radarLayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 }).addTo(map);
-                        } else {
-                            radarLayer.setUrl(radarUrl);
-                        }
-                    }
-                    renderRegionalData();
-                })
-                .catch(err => console.log('Errore caricamento centroids.json:', err));
-        }
-
-        function renderRegionalData() {
-            if (!cachedMasterData) return;
-
-            cellsLayer.clearLayers();
+        function renderRegionalData(data) {
+            radarLayer.clearLayers();
             vectorsLayer.clearLayers();
 
-            let bboxMap = cachedMasterData.regions_bbox || {};
-            let currentBbox = bboxMap[currentSelectedRegion] || bboxMap["Nazionale"];
-
-            if (currentSelectedRegion === "Nazionale") {
-                map.setView([42.5, 12.5], 6);
-            } else if (currentBbox && currentBbox.center) {
-                map.setView(currentBbox.center, currentBbox.zoom || 8);
+            if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
+                let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
+                let rLayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 });
+                radarLayer.addLayer(rLayer);
             }
 
-            let allStructures = cachedMasterData.macro_structures || [];
-            let filteredStructures = [];
+            let structures = data.structures || [];
+            document.getElementById('total-count').innerText = structures.length;
+            document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
 
-            if (currentSelectedRegion === "Nazionale") {
-                filteredStructures = allStructures;
-            } else {
-                filteredStructures = allStructures.filter(st => {
-                    let lat = st.center[0];
-                    let lon = st.center[1];
-                    return lat >= currentBbox.lat_min && lat <= currentBbox.lat_max &&
-                           lon >= currentBbox.lon_min && lon <= currentBbox.lon_max;
-                });
-            }
-
-            document.getElementById('active-count').innerText = filteredStructures.length;
-            document.getElementById('last-update').innerText = 'Aggiornato: ' + new Date().toLocaleTimeString();
-
-            filteredStructures.forEach(track => {
+            structures.forEach(track => {
                 let center = track.center;
-                let peakVal = getMaxVal(track.grid_matrix);
-                let cellColor = getColor(peakVal);
+                if (!center || center.length < 2) return;
 
+                // Filtro geografico regione o Nazionale
+                if (currentActiveRegion !== 'Nazionale') {
+                    let coords = regionCoords[currentActiveRegion];
+                    if (coords) {
+                        let dist = Math.abs(center[0] - coords[0]) + Math.abs(center[1] - coords[1]);
+                        if (dist > 2.2) return; // Fuori raggio regione
+                    }
+                }
+
+                // Vettore Storico
                 if (track.actual_path && track.actual_path.length > 0) {
-                    L.polyline(track.actual_path, { color: '#0066cc', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
+                    let fullPath = [center, ...track.actual_path];
+                    L.polyline(fullPath, { color: '#00bfff', weight: 4, opacity: 0.75 }).addTo(vectorsLayer);
                 }
 
-                if (center && center.length === 2) {
-                    let centroidIcon = L.divIcon({
-                        className: 'custom-centroid',
-                        html: '<div class="centroid-ring" style="background-color: ' + cellColor + ';"></div>',
-                        iconSize: [16, 16],
-                        iconAnchor: [8, 8]
-                    });
-                    let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(cellsLayer);
-                    marker.on('click', () => open3DViewer(track));
+                // Centroide Cella
+                let centroidIcon = L.divIcon({
+                    className: 'centroid-pulse',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(vectorsLayer);
+                marker.on('click', () => open3DViewer(track));
+
+                // Vettore Predittivo
+                if (track.forecast_path && track.forecast_path.length > 0) {
+                    L.polyline([center, ...track.forecast_path], { color: '#ff5500', weight: 3, dashArray: '5, 5' }).addTo(vectorsLayer);
                 }
 
-                if (track.forecast_path && track.forecast_path.length > 0 && center) {
-                    L.polyline([center, ...track.forecast_path], { color: '#ff1a1a', weight: 3, dashArray: '5, 6', opacity: 0.9 }).addTo(vectorsLayer);
-                }
-
-                if (track.coast_target && center) {
+                // Cono ETA Costa
+                if (track.coast_target) {
                     let target = track.coast_target;
                     let dLat = target[0] - center[0];
                     let dLon = target[1] - center[1];
-                    let perpLat = -dLon * 0.25;
-                    let perpLon = dLat * 0.25;
+                    let len = Math.sqrt(dLat * dLat + dLon * dLon);
+                    if (len > 0) { dLat /= len; dLon /= len; }
 
-                    let coneLeft = [target[0] + perpLat, target[1] + perpLon];
-                    let coneRight = [target[0] - perpLat, target[1] - perpLon];
+                    let spread = 0.15, tipDist = 1.2;
+                    let tipPoint = [center[0] + dLat * tipDist, center[1] + dLon * tipDist];
+                    let perpLat = -dLon * spread, perpLon = dLat * spread;
+                    let coneLeft = [center[0] + dLat * (tipDist * 0.5) + perpLat, center[1] + dLon * (tipDist * 0.5) + perpLon];
+                    let coneRight = [center[0] + dLat * (tipDist * 0.5) - perpLat, center[1] + dLon * (tipDist * 0.5) - perpLon];
 
                     L.polygon([center, coneLeft, coneRight], {
-                        color: '#ff5500', fillColor: '#ff6600', fillOpacity: 0.2, weight: 2, dashArray: '4, 4'
+                        color: '#ff5500', fillColor: '#ff6600', fillOpacity: 0.25, weight: 1.5, dashArray: '3, 3'
                     }).addTo(vectorsLayer);
 
                     let etaIcon = L.divIcon({
@@ -385,34 +246,45 @@
                         html: '<div style="background: rgba(0,0,0,0.85); border: 1px solid #ff5500; color: #ffaa00; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; white-space: nowrap;">ETA: ' + (track.eta_hours || '?') + 'h</div>',
                         iconSize: [60, 20], iconAnchor: [30, 10]
                     });
-                    L.marker(target, { icon: etaIcon }).addTo(vectorsLayer);
+                    L.marker(tipPoint, { icon: etaIcon }).addTo(vectorsLayer);
                 }
             });
         }
-                var currentTrack = null;
-        var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX, lastMouseY, isHologramActive = false, animFrameId = null, holoWaveOffset = 0;
+
+        // ==========================================
+        // GESTIONE MODALE 3D (VOLEX & WIREFRAME)
+        // ==========================================
+        var currentTrack = null;
+        var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+        var isWireframeMode = false;
+        var wireframeAnimId = null;
+        var scanAngle = 0;
 
         function open3DViewer(track) {
             currentTrack = track;
-            rotY = 0.0; rotX = 0.5; isHologramActive = false;
-            document.getElementById('holo-btn').innerText = "ATTIVA OLOGRAMMA LIVE";
+            rotY = 0.0; rotX = 0.5; isWireframeMode = false;
+            document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
             document.getElementById('modal-cell-id').innerText = track.id + " | " + track.intensity;
-            document.getElementById('modal-cell-details').innerText = "Velocità: " + track.speed_kmh + " km/h (" + track.direction_deg + "°) | VIL: " + track.vil + " kg/m² | Echo Top: " + track.echo_top + " km | ETA Costa: " + (track.eta_hours || '?') + "h";
+            document.getElementById('modal-cell-details').innerText = "Velocità: " + track.speed_kmh + " km/h (" + track.direction_deg + "°) | VIL: " + track.vil + " kg/m² | Echo Top: " + track.echo_top + " km";
             document.getElementById('viewer-3d-modal').style.display = 'flex';
             render3D();
         }
 
         function close3DViewer() {
             document.getElementById('viewer-3d-modal').style.display = 'none';
-            if (animFrameId) cancelAnimationFrame(animFrameId);
-            currentTrack = null; isHologramActive = false;
+            if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+            currentTrack = null; isWireframeMode = false;
         }
 
         function toggleHologramMode() {
-            isHologramActive = !isHologramActive;
-            document.getElementById('holo-btn').innerText = isHologramActive ? "DISATTIVA OLOGRAMMA" : "ATTIVA OLOGRAMMA LIVE";
-            if (isHologramActive) runHologramLoop();
-            else { if (animFrameId) cancelAnimationFrame(animFrameId); render3D(); }
+            isWireframeMode = !isWireframeMode;
+            document.getElementById('holo-btn').innerText = isWireframeMode ? "DISATTIVA WIREFRAME 3D" : "ATTIVA WIREFRAME 3D";
+            if (isWireframeMode) {
+                runWireframeLoop();
+            } else {
+                if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+                render3D();
+            }
         }
 
         var canvas = document.getElementById('viewer-canvas');
@@ -420,16 +292,33 @@
         var container = document.getElementById('canvas-3d-container');
 
         container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
-        window.addEventListener('mouseup', () => isDragging = false);
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; }
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('touchend', () => { isDragging = false; });
+
         window.addEventListener('mousemove', e => {
             if (!isDragging) return;
-            rotY += (e.clientX - lastMouseX) * 0.008;
-            rotX += (e.clientY - lastMouseY) * 0.005;
-            rotX = Math.max(0.15, Math.min(0.85, rotX));
+            rotY += (e.clientX - lastMouseX) * 0.01;
+            rotX += (e.clientY - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = e.clientX; lastMouseY = e.clientY;
-            if (!isHologramActive) render3D();
+            if (!isWireframeMode) render3D();
         });
 
+        window.addEventListener('touchmove', e => {
+            if (!isDragging || e.touches.length !== 1) return;
+            let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+            rotY += (cx - lastMouseX) * 0.01;
+            rotX += (cy - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = cx; lastMouseY = cy;
+            if (!isWireframeMode) render3D();
+        }, { passive: true });
+
+        // 1. Motorino Volex 3D Originale (Colonne stabili)
         function render3D() {
             if (!currentTrack) return;
             canvas.width = container.clientWidth;
@@ -449,10 +338,7 @@
                 for (let c = 0; c < cols; c++) {
                     let val = matrix[r][c];
                     if (val <= 0) continue;
-                    if (isHologramActive) {
-                        let dynamicFactor = Math.sin(holoWaveOffset + (r * 0.4) + (c * 0.4));
-                        val = Math.max(1, Math.min(12, Math.round(val + dynamicFactor * 1.8)));
-                    }
+
                     let x = (c - cols / 2 + 0.5) * 1.0;
                     let y = (r - rows / 2 + 0.5) * 1.0;
                     let px_base = cx + (x * cosY - y * sinY) * scale;
@@ -473,8 +359,8 @@
 
             columnsToDraw.forEach(col => {
                 ctx.fillStyle = col.color;
-                ctx.strokeStyle = isHologramActive ? 'rgba(0, 191, 255, 0.9)' : 'rgba(0, 0, 0, 0.7)';
-                ctx.lineWidth = isHologramActive ? 1.5 : 1;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
                 ctx.fill();
@@ -482,12 +368,71 @@
             });
         }
 
-        function runHologramLoop() {
-            if (!isHologramActive) return;
-            holoWaveOffset += 0.08;
-            rotY += 0.012;
-            render3D();
-            animFrameId = requestAnimationFrame(runHologramLoop);
+        // 2. Motorino Wireframe 3D Avanzato (Scansione laser e griglia)
+        function runWireframeLoop() {
+            if (!isWireframeMode) return;
+            scanAngle += 0.03;
+            rotY += 0.008;
+
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = 'rgba(0, 191, 255, 0.08)';
+                ctx.strokeStyle = 'rgba(0, 191, 255, 0.9)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            // Linea laser di scansione orizzontale in stile CAD
+            let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00ffcc';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(cx - 100, scanY);
+            ctx.lineTo(cx + 100, scanY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            wireframeAnimId = requestAnimationFrame(runWireframeLoop);
         }
 
         loadMasterData();
@@ -495,3 +440,4 @@
     </script>
 </body>
 </html>
+        
