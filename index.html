@@ -673,72 +673,98 @@
             });
         }
 
-        // 4. VISTA FOTOREALISTICA (Anti-Ciambella con Gradiente Radiale e Blending Additivo)
+        // 4. VISTA FOTOREALISTICA REALE (Modello Volumetrico Organico a fette orizzontali)
         function renderPhotorealisticCloudMode() {
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.globalCompositeOperation = 'screen';
+            if (!currentTrack) return;
 
-            let matrix = currentTrack.grid_matrix || [];
-            let rows = matrix.length;
-            let cols = rows > 0 ? matrix[0].length : 0;
-            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
-            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let dbz = currentTrack.dbz || 50;
+            let maxH = Math.min(14, currentTrack.echo_top || 12);
+            let cx = canvas.width / 2;
+            let cy = canvas.height / 2 + 40;
+            let baseScale = Math.min(canvas.width, canvas.height) / 18;
+
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-            let particlesToDraw = [];
 
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    let val = matrix[r][c];
-                    if (val <= 0) continue;
+            ctx.globalCompositeOperation = 'screen';
 
-                    let x = (c - cols / 2 + 0.5) * 1.0;
-                    let y = (r - rows / 2 + 0.5) * 1.0;
-                    
-                    for (let h_step = 0; h_step < val; h_step += 1.5) {
-                        let px = cx + (x * cosY - y * sinY) * scale;
-                        let py = (cy + (x * sinY + y * cosY) * sinX * scale) - (h_step * scale * 0.4);
-                        let depth = (x * sinY + y * cosY) * cosX;
+            let totalSlices = 30;
+            let slices = [];
 
-                        particlesToDraw.push({
-                            val: val, h_step: h_step, depth: depth,
-                            x: px, y: py
-                        });
-                    }
+            for (let i = 0; i <= totalSlices; i++) {
+                let progress = i / totalSlices;
+                
+                let radiusFactor;
+                if (progress < 0.2) {
+                    radiusFactor = 0.6 + (progress * 1.5);
+                } else if (progress < 0.7) {
+                    radiusFactor = 0.9 + Math.sin(progress * Math.PI) * 0.6;
+                } else {
+                    radiusFactor = 1.2 + Math.pow((progress - 0.7) * 3, 2) * 2.5; 
                 }
+
+                let currentRadius = baseScale * radiusFactor;
+                let yOffset = (progress * maxH * baseScale * 0.5);
+                
+                let worldX = 0;
+                let worldZ = (progress - 0.5) * 20;
+
+                let rotX_3d = worldX * cosY - worldZ * sinY;
+                let rotZ_3d = worldX * sinY + worldZ * cosY;
+
+                let drawX = cx + rotX_3d;
+                let drawY = cy - yOffset * cosX + rotZ_3d * sinX;
+                let depth = rotZ_3d * cosX;
+
+                slices.push({
+                    progress: progress,
+                    x: drawX,
+                    y: drawY,
+                    radiusX: currentRadius,
+                    radiusY: currentRadius * (0.4 + (rotX * 0.2)),
+                    depth: depth,
+                    dbz: dbz
+                });
             }
 
-            particlesToDraw.sort((a, b) => a.depth - b.depth);
+            slices.sort((a, b) => a.depth - b.depth);
 
-            particlesToDraw.forEach(p => {
-                let radius = scale * 1.2;
-                let gradient = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, radius);
+            slices.forEach(s => {
+                let grad = ctx.createRadialGradient(s.x, s.y, 2, s.x, s.y, s.radiusX);
 
-                if (p.val >= 14) {
-                    gradient.addColorStop(0, 'rgba(255, 0, 255, 0.75)');
-                    gradient.addColorStop(0.4, 'rgba(220, 50, 200, 0.35)');
-                    gradient.addColorStop(1, 'rgba(150, 0, 150, 0)');
-                } else if (p.val >= 11) {
-                    gradient.addColorStop(0, 'rgba(255, 60, 60, 0.7)');
-                    gradient.addColorStop(0.5, 'rgba(200, 50, 50, 0.3)');
-                    gradient.addColorStop(1, 'rgba(100, 0, 0, 0)');
-                } else if (p.val >= 6) {
-                    gradient.addColorStop(0, 'rgba(255, 200, 50, 0.5)');
-                    gradient.addColorStop(0.5, 'rgba(200, 150, 0, 0.2)');
-                    gradient.addColorStop(1, 'rgba(100, 80, 0, 0)');
+                if (s.progress > 0.75) {
+                    grad.addColorStop(0, 'rgba(240, 245, 255, 0.35)');
+                    grad.addColorStop(0.5, 'rgba(200, 215, 235, 0.15)');
+                    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                } else if (s.progress > 0.3 && s.progress <= 0.75) {
+                    if (s.dbz >= 50 && s.progress > 0.4 && s.progress < 0.65) {
+                        grad.addColorStop(0, 'rgba(255, 0, 220, 0.65)');
+                        grad.addColorStop(0.3, 'rgba(255, 50, 50, 0.4)');
+                        grad.addColorStop(0.7, 'rgba(200, 150, 200, 0.1)');
+                        grad.addColorStop(1, 'rgba(100, 0, 100, 0)');
+                    } else {
+                        grad.addColorStop(0, 'rgba(220, 200, 150, 0.45)');
+                        grad.addColorStop(0.4, 'rgba(180, 170, 190, 0.2)');
+                        grad.addColorStop(1, 'rgba(120, 140, 160, 0)');
+                    }
                 } else {
-                    gradient.addColorStop(0, 'rgba(230, 240, 255, 0.35)');
-                    gradient.addColorStop(0.6, 'rgba(180, 200, 220, 0.12)');
-                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    grad.addColorStop(0, 'rgba(90, 100, 120, 0.5)');
+                    grad.addColorStop(0.5, 'rgba(60, 70, 90, 0.2)');
+                    grad.addColorStop(1, 'rgba(30, 40, 50, 0)');
                 }
 
-                ctx.fillStyle = gradient;
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.scale(1, s.radiusY / s.radiusX);
+                ctx.fillStyle = grad;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                ctx.arc(0, 0, s.radiusX, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.restore();
             });
 
             ctx.globalCompositeOperation = 'source-over';
