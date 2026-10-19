@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>MATS R3 - Meteosat Advanced Tracking System</title>
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="..." />
     <style>
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
             font-family: "Segoe UI", Arial, sans-serif;
-            background: #000306;
+            background: #000000;
             color: #fff;
             overflow: hidden;
         }
@@ -28,22 +28,25 @@
             top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 9000;
+            z-index: 1000;
             text-align: center;
             pointer-events: none;
-            background: rgba(30, 30, 30, 0.85);
+            background: rgba(10, 10, 10, 0.85);
             padding: 8px 24px;
             border-radius: 24px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
         .mats-title {
             font-size: 22px;
             font-weight: 800;
             letter-spacing: 2px;
-            color: #00cfff;
+            background: linear-gradient(45deg, #00cfff, #ff1700, #ff7f00, #ffcc00, #00ff00, #00ff77, #7f00ff);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .mats-subtitle {
@@ -61,7 +64,7 @@
             top: 70px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 9000;
+            z-index: 1000;
             display: flex;
             gap: 6px;
             overflow-x: auto;
@@ -102,13 +105,13 @@
             bottom: 12px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 9000;
+            z-index: 1000;
             background: rgba(10, 10, 10, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 8px 16px;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 11px;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             display: flex;
             gap: 15px;
             align-items: center;
@@ -121,95 +124,13 @@
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.92);
-            z-index: 20000;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-info-bar {
-            position: absolute;
-            top: 15px;
-            left: 15px; right: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            background: rgba(15, 15, 15, 0.95);
-            padding: 12px 16px;
-            border-radius: 10px;
-            border: 1px solid rgba(0, 191, 255, 0.3);
-            box-shadow: 0 0 15px rgba(0,0,0,0.8);
-            color: #00cfff;
-            letter-spacing: 1.2px;
-            text-transform: uppercase;
-            margin-top: 2px;
-        }
-
-        .meteo-grid-info {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 4px 12px;
-            font-size: 10.5px;
-            color: #ddd;
-            margin-top: 4px;
-        }
-
-        .close-btn {
-            background: #ff3b30;
-            color: #fff;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .canvas-3d-container {
-            width: 100%;
-            height: 80vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: grab;
-            position: relative;
-        }
-
-        .canvas-3d-container:active { cursor: grabbing; }
-
-        .holo-toggle-btn {
-            position: absolute;
-            bottom: 20px;
-            background: linear-gradient(45deg, #00cfff, #007fff);
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
-        }
-
-        .controls-hint {
-            position: absolute;
-            bottom: 70px;
-            font-size: 11px;
-            color: #aaa;
-            text-align: center;
-        }
-
-        /* Marker Centroide Dinamico */
-        .centroid-pulse {
-            width: 16px; height: 16px;
-            border-radius: 50%;
-            border: 2px solid #fff;
+            z-index: 2000;
         }
     </style>
 </head>
 <body>
-
     <div class="mats-header">
-        <div class="mats-title">MATS</div>
+        <div class="mats-title">MATS R3</div>
         <div class="mats-subtitle">Meteosat Advanced Tracking System</div>
     </div>
 
@@ -221,26 +142,14 @@
 
     <div class="mop-banner">
         <span>Strutture Attive: <b id="total-count" style="color:#00cfff;">0</b></span>
-        <span>Aggiornamento: <b id="last-update"></b></span>
+        <span>Aggiornamento: <b id="last-update">--:--:--</b></span>
     </div>
 
-    <!-- Viewer 3D -->
+    <!-- Viewer 3D Modal -->
     <div id="viewer-3d-modal" class="viewer-3d-modal">
-        <div class="modal-info-bar">
-            <div>
-                <div id="model-cell-id" style="font-size: 16px; color: #00cfff;">CELL ID</div>
-                <div class="meteo-grid-info" id="meteo-grid-details"></div>
-            </div>
-            <button class="close-btn" onclick="closeViewer()">CHIUDI [X]</button>
-        </div>
-        <div class="canvas-3d-container">
-            <canvas id="viewer-canvas"></canvas>
-            <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">DISATTIVA WIREFRAME 3D</button>
-        </div>
-        <div class="controls-hint">Trascina per ruotare a 360° | AnCORATO al centro</div>
+        <!-- Contenuto modale 3D -->
     </div>
-
-    <!-- Leaflet JS -->
+        <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const regionList = [
@@ -270,15 +179,15 @@
             navContainer.appendChild(btn);
         });
 
-        function filterRegion(regiano, btnElement) {
-            currentActiveRegion = regiano;
+        function filterRegion(regName, btnElement) {
+            currentActiveRegion = regName;
             document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
             if(btnElement) btnElement.classList.add('active');
 
-            if (regiano === 'Nazionale') {
+            if (regName === 'Nazionale') {
                 map.setView([42.5, 12.5], 6);
-            } else if (regionCoords[regiano]) {
-                map.setView(regionCoords[regiano], 8);
+            } else if (regionCoords[regName]) {
+                map.setView(regionCoords[regName], 8);
             }
             if (window.lastLoadedData) renderRegionsData(window.lastLoadedData);
         }
@@ -286,44 +195,24 @@
         var map = L.map('map', {zoomControl: false}).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
-            attribution: 'Tiles &copy; Esri'
+            attribution: '&copy; OpenStreetMap & CartoDB'
         }).addTo(map);
 
-        let radarlayer = L.layerGroup().addTo(map);
+        let radarLayer = L.layerGroup().addTo(map);
         let vectorsLayer = L.layerGroup().addTo(map);
 
         function getColor(val) {
-            if (val > 14) return "#ff00ff"; // Magenta (Grandine / Core Potente)
-            if (val > 10) return "#ff3000"; // Rosso (Severo)
-            if (val > 6)  return "#ff7200"; // Arancione (Intenso)
-            if (val > 3)  return "#ffcc00"; // Giallo (Moderato)
-            if (val > 0)  return "#00ee00"; // Verde (Pioggia)
-            return "#93bfff";                 // Celeste (Debole)
-        }
-
-        function getDolColor(hex, alpha) {
-            if (hex === '#ff00ff') return `rgba(255, 0, 255, ${alpha})`;
-            if (hex === '#ff3000') return `rgba(255, 48, 0, ${alpha})`;
-            if (hex === '#ff7200') return `rgba(255, 114, 0, ${alpha})`;
-            if (hex === '#ffcc00') return `rgba(255, 204, 0, ${alpha})`;
-            if (hex === '#00ee00') return `rgba(0, 238, 0, ${alpha})`;
-            return `rgba(0, 191, 255, ${alpha})`;
-        }
-                function getMaxCoreColor(track) {
-            let maxVal = 0;
-            let matrix = track.grid_matrix || [];
-            matrix.forEach(row => {
-                row.forEach(val => { if (val > maxVal) maxVal = val; });
-            });
-            return getColor(maxVal);
+            if (val > 10) return '#ff0000';
+            if (val > 6) return '#ff7200';
+            return '#00ee00';
         }
 
         async function loadMasterData() {
             try {
-                let res = await fetch('centrones.json?t=' + Date.now());
-                if (!res.ok) throw new Error("Errore dati");
+                let res = await fetch('centroids.json?t=' + Date.now());
+                if (!res.ok) throw new Error('Errore dati');
                 let data = await res.json();
                 window.lastLoadedData = data;
                 renderRegionsData(data);
@@ -332,28 +221,14 @@
             }
         }
 
-        function getOffsetBearing(lat, lon, bearing, distanceKm) {
-            const R = 6371;
-            const rad = Math.PI / 180;
-            const d = distanceKm / R;
-            const brng = bearing * rad;
-            const lat1 = lat * rad;
-            const lon1 = lon * rad;
-
-            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
-            const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
-
-            return [lat2 / rad, lon2 / rad];
-        }
-
         function renderRegionsData(data) {
-            radarlayer.clearLayers();
+            radarLayer.clearLayers();
             vectorsLayer.clearLayers();
 
             if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
                 let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
                 let rlayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 });
-                radarlayer.addLayer(rlayer);
+                radarLayer.addLayer(rlayer);
             }
 
             let structures = data.mats_structures || data.structures || [];
@@ -372,61 +247,47 @@
                     }
                 }
 
-                let coreMaxColor = getMaxCoreColor(track);
-                let coreBgFill = getDolColor(coreMaxColor, 0.22);
-
                 if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
-                    L.polyline(fullPath, { color: coreMaxColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
+                    L.polyline(fullPath, { color: '#00cfff', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                 }
 
-                let speedKmh = track.speed_kmh || 40;
-                let dirDeg = track.direction_deg || 45;
-                let lat0 = center[0], lon0 = center[1];
-
-                let predPoints = [[lat0, lon0]];
-                let coneLeft = [], coneRight = [];
-
-                for (let h = 1; h <= 6; h++) {
-                    let dist = speedKmh * h;
-                    let pos = getOffsetBearing(lat0, lon0, dirDeg, dist);
-                    predPoints.push(pos);
-
-                    let coneRadius = 5 + (h * 6);
-                    let left = getOffsetBearing(pos[0], pos[1], dirDeg - 90, coneRadius);
-                    let right = getOffsetBearing(pos[0], pos[1], dirDeg + 90, coneRadius);
-
-                    coneLeft.push(left);
-                    coneRight.unshift(right);
-
-                    if (h === 1 || h === 3 || h === 6) {
-                        L.circleMarker(pos, { radius: 4, color: coreMaxColor, fillColor: coreMaxColor, fillOpacity: 0.8 })
-                            .bindTooltip(`+${h}h (${Math.round(dist)}km)`, { permanent: false, direction: 'top' })
-                            .addTo(vectorsLayer);
-                    }
-                }
-
-                let conePolygon = [[lat0, lon0], ...coneLeft, ...coneRight];
-                L.polygon(conePolygon, {
-                    color: coreMaxColor,
-                    weight: 2,
-                    dashArray: '4, 4',
-                    fillColor: coreMaxColor,
-                    fillOpacity: 0.12
-                }).addTo(vectorsLayer);
-
-                L.polyline(predPoints, { color: coreMaxColor, weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
-
-                let customIconHtml = `<div class="centroid-pulse" style="background:${coreMaxColor}; box-shadow:0 0 12px ${coreMaxColor};"></div>`;
                 let centroidIcon = L.divIcon({
-                    className: 'custom-centroid-node',
-                    html: customIconHtml,
+                    className: 'centroid-pulse',
                     iconSize: [16, 16],
                     iconAnchor: [8, 8]
                 });
-
                 let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(vectorsLayer);
                 marker.on('click', () => open3DViewer(track));
+
+                if (track.forecast_path && track.forecast_path.length > 0) {
+                    L.polyline([center, ...track.forecast_path], { color: '#ff3000', weight: 3, dashArray: '5, 5' }).addTo(vectorsLayer);
+                }
+
+                if (track.coast_target) {
+                    let target = track.coast_target;
+                    let dlat = target[0] - center[0];
+                    let dlon = target[1] - center[1];
+                    let len = Math.sqrt(dlat * dlat + dlon * dlon);
+                    if (len > 0) { dlat /= len; dlon /= len; }
+
+                    let spread = 0.15, tipDist = 1.3;
+                    let tipPoint = [target[0] + dlat * tipDist, target[1] + dlon * tipDist];
+                    let perplat = -dlon * spread, perplon = dlat * spread;
+                    let coneLeft = [target[0] + dlat * (tipDist * 0.5) + perplat, target[1] + dlon * (tipDist * 0.5) + perplon];
+                    let coneRight = [target[0] + dlat * (tipDist * 0.5) - perplat, target[1] + dlon * (tipDist * 0.5) - perplon];
+
+                    L.polygon([center, coneLeft, coneRight], {
+                        color: '#ff5000', fillColor: '#ffcc00', fillOpacity: 0.25, weight: 1.5, dashArray: '3, 3'
+                    }).addTo(vectorsLayer);
+
+                    let chatIcon = L.divIcon({
+                        className: 'eta-badge',
+                        html: `<div style="background: rgba(0,0,0,0.85); border: 1px solid #ff5000; color: #ffaa00; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">ETA: ${track.eta || 'N/D'}</div>`,
+                        iconSize: [60, 20], iconAnchor: [30, 10]
+                    });
+                    L.marker(tipPoint, { icon: chatIcon }).addTo(vectorsLayer);
+                }
             });
         }
 
@@ -440,31 +301,13 @@
             currentTrack = track;
             rotY = 0.8; rotX = -0.5; isWireframeMode = false;
             document.getElementById('holo-btn').innerText = 'ATTIVA WIREFRAME 3D';
-
-            let dbzVal = track.dbz || (40 + Math.round((track.val || 20) % 35));
-            let rainRate = Math.round(Math.pow(10, (dbzVal - 10) / 10) / 10);
-            let echotopVal = track.echo_top || Math.min(18.0, Math.round((0.5 + (dbzVal / 10.0)) * 10) / 10);
-            let hailRisk = (dbzVal > 52) ? "MOLTO ELEVATO (>85%)" : (dbzVal > 46) ? "ELEVATO (60-80%)" : "DEBOLE";
-            let hailColor = dbzVal > 52 ? "#ff00ff" : (dbzVal > 46 ? "#ff3000" : "#ffcc00");
-            let lightningActivity = dbzVal > 50 ? "POTENTE (>50 st/min)" : (dbzVal > 44 ? "ATTIVA (20-40 st/min)" : "DEBOLE");
-
-            document.getElementById('model-cell-id').innerText = `${track.id || dbzVal} dBZ`;
-            document.getElementById('meteo-grid-details').innerHTML = `
-                <div>Riflettività Max: <b style="color:${getMaxCoreColor(track)};">${track.get || dbzVal} dBZ</b></div>
-                <div>Rain Rate Previsto: <span style="color:#00cfff;">${rainRate} mm/h</span></div>
-                <div>VIL Core / Top: <b>${track.vil || 45} kg/m²</b></div>
-                <div>Echo Top (dBZ): <span style="color:#ffcc00;">${echotopVal} km</span></div>
-                <div>Rischio Grandine: <span style="color:${hailColor}; font-weight:bold;">${hailRisk}</span></div>
-                <div>Attività Fulmini: <b>${lightningActivity}</b></div>
-                <div>Vel. Traslazione: <b>${track.speed_kmh || 40} km/h</b></div>
-                <div>I-L Core +4h: <b>Target Costiero</b></div>
-            `;
-
+            document.getElementById('model-cell-id').innerText = track.id + ' - ' + track.intensity;
+            document.getElementById('meteo-grid-details').innerText = 'Vel: ' + track.speed_kmh + ' km/h | VIL: ' + track.vil + ' kg/m²';
             document.getElementById('viewer-3d-modal').style.display = 'flex';
             render3D();
         }
 
-        function closeViewer() {
+        function close3DViewer() {
             document.getElementById('viewer-3d-modal').style.display = 'none';
             if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
             currentTrack = null; isWireframeMode = false;
@@ -548,14 +391,14 @@
             }
 
             columnsToDraw.sort((a, b) => a.depth - b.depth);
-            let band = scale * 0.85;
+            let barW = scale * 0.85;
 
             columnsToDraw.forEach(col => {
                 ctx.fillStyle = col.color;
-                ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.rect(col.px_base - band / 2, col.py_top, band, col.h_px);
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
                 ctx.fill();
                 ctx.stroke();
             });
@@ -564,7 +407,7 @@
         function runWireframeLoop() {
             if (!isWireframeMode) return;
             rotYAngle += 0.02;
-            rotY += 0.018;
+            rotY += 0.008;
 
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
@@ -600,26 +443,26 @@
             }
 
             columnsToDraw.sort((a, b) => a.depth - b.depth);
-            let band = scale * 0.85;
+            let barW = scale * 0.85;
 
             columnsToDraw.forEach(col => {
-                ctx.fillStyle = getDolColor(col.color, 0.25);
-                ctx.strokeStyle = getDolColor(col.color, 0.95);
+                ctx.fillStyle = 'rgba(0, 191, 255, 0.08)';
+                ctx.strokeStyle = 'rgba(0, 191, 255, 0.9)';
                 ctx.lineWidth = 1.2;
                 ctx.beginPath();
-                ctx.rect(col.px_base - band / 2, col.py_top, band, col.h_px);
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
                 ctx.fill();
                 ctx.stroke();
             });
 
-            let stemY = cy - 80 - Math.sin(rotYAngle) * 21 * 10;
+            let scanY = cy - 80 + Math.sin(rotYAngle * 2) * 90;
             ctx.strokeStyle = '#00ffcc';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
             ctx.shadowColor = '#00ffcc';
             ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.moveTo(cx - 100, stemY);
-            ctx.lineTo(cx + 100, stemY);
+            ctx.moveTo(cx - 100, scanY);
+            ctx.lineTo(cx + 100, scanY);
             ctx.stroke();
             ctx.shadowBlur = 0;
 
@@ -631,4 +474,3 @@
     </script>
 </body>
 </html>
-,
