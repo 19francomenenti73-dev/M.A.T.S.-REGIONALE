@@ -330,14 +330,10 @@
 
         function getMaxCoreColor(track) {
             let maxVal = 0;
-            let matrix = track && track.grid_matrix;
-            if (Array.isArray(matrix)) {
-                matrix.forEach(row => {
-                    if (Array.isArray(row)) {
-                        row.forEach(val => { if (typeof val === 'number' && val > maxVal) maxVal = val; });
-                    }
-                });
-            }
+            let matrix = track.grid_matrix || [];
+            matrix.forEach(row => {
+                row.forEach(val => { if (val > maxVal) maxVal = val; });
+            });
             return getColor(maxVal);
         }
 
@@ -378,14 +374,12 @@
             }
 
             let structures = data.macro_structures || data.structures || [];
-            if (!Array.isArray(structures)) structures = [];
-
             document.getElementById('total-count').innerText = structures.length;
             document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
 
             structures.forEach(track => {
-                let center = track && track.center;
-                if (!Array.isArray(center) || center.length < 2) return;
+                let center = track.center;
+                if (!center || center.length < 2) return;
 
                 if (currentActiveRegion !== 'Nazionale') {
                     let coords = regionCoords[currentActiveRegion];
@@ -397,7 +391,7 @@
 
                 let coreHexColor = getMaxCoreColor(track);
 
-                if (Array.isArray(track.actual_path) && track.actual_path.length > 0) {
+                if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
                     L.polyline(fullPath, { color: coreHexColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                 }
@@ -453,15 +447,14 @@
         var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
         var isWireframeMode = false;
         var wireframeAnimId = null;
-        var active3DViewMode = 'voxel';
+        var active3DViewMode = 'voxel'; // 'voxel', 'holo', 'volumetric', 'photoreal'
         var scanAngle = 0;
 
         function open3DViewer(track) {
-            if (!track) return;
             currentTrack = track;
             rotY = 0.0; rotX = 0.5;
             let modal = document.getElementById('viewer-3d-modal');
-            if(modal) modal.style.display = 'flex';
+            modal.style.display = 'flex';
             
             setTimeout(() => {
                 set3DMode('voxel');
@@ -474,27 +467,21 @@
             let hailColor = dbzVal >= 52 ? '#ff00ff' : (dbzVal >= 46 ? '#ff0000' : '#ffcc00');
             let lightningActivity = dbzVal >= 50 ? "EXTREME (>50 sf/min)" : (dbzVal >= 44 ? "ATTIVA (20-40 sf/min)" : "DEBOLE/ISOLATA");
 
-            let idElem = document.getElementById('modal-cell-id');
-            if(idElem) idElem.innerText = `${track.id || 'Core'} | ${dbzVal} dBZ`;
-            
-            let detailsElem = document.getElementById('modal-cell-details');
-            if(detailsElem) {
-                detailsElem.innerHTML = `
-                    <div><b>Riflettività Max:</b> <span style="color:${getMaxCoreColor(track)}; font-weight:bold;">${dbzVal} dBZ</span></div>
-                    <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
-                    <div><b>VIL Core:</b> ${track.vil || 45} kg/m²</div>
-                    <div><b>Echo Top (Med):</b> <span style="color:#ffcc00;">${echoTopMed} km</span></div>
-                    <div><b>Rischio Grandine:</b> <span style="color:${hailColor}; font-weight:bold;">${hailRisk}</span></div>
-                    <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
-                    <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
-                    <div><b>ETA Cono +6h:</b> Target Costiero</div>
-                `;
-            }
+            document.getElementById('modal-cell-id').innerText = `${track.id} | ${dbzVal} dBZ`;
+            document.getElementById('modal-cell-details').innerHTML = `
+                <div><b>Riflettività Max:</b> <span style="color:${getMaxCoreColor(track)}; font-weight:bold;">${dbzVal} dBZ</span></div>
+                <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
+                <div><b>VIL Core:</b> ${track.vil || 45} kg/m²</div>
+                <div><b>Echo Top (Med):</b> <span style="color:#ffcc00;">${echoTopMed} km</span></div>
+                <div><b>Rischio Grandine:</b> <span style="color:${hailColor}; font-weight:bold;">${hailRisk}</span></div>
+                <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
+                <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
+                <div><b>ETA Cono +6h:</b> Target Costiero</div>
+            `;
         }
 
         function close3DViewer() {
-            let modal = document.getElementById('viewer-3d-modal');
-            if(modal) modal.style.display = 'none';
+            document.getElementById('viewer-3d-modal').style.display = 'none';
             if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
             currentTrack = null; isWireframeMode = false;
         }
@@ -533,15 +520,13 @@
         }
 
         var canvas = document.getElementById('viewer-canvas');
-        var ctx = canvas ? canvas.getContext('2d') : null;
+        var ctx = canvas.getContext('2d');
         var container = document.getElementById('canvas-3d-container');
 
-        if (container) {
-            container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
-            container.addEventListener('touchstart', e => {
-                if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; }
-            }, { passive: true });
-        }
+        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; }
+        }, { passive: true });
 
         window.addEventListener('mouseup', () => { isDragging = false; });
         window.addEventListener('touchend', () => { isDragging = false; });
@@ -552,9 +537,12 @@
             rotX += (e.clientY - lastMouseY) * 0.006;
             rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = e.clientX; lastMouseY = e.clientY;
-            if (!isWireframeMode && currentTrack) {
-                if (active3DViewMode === 'photoreal') renderPhotorealisticCloudMode();
-                else render3D();
+            if (!isWireframeMode) {
+                if (active3DViewMode === 'photoreal') {
+                    renderPhotorealisticCloudMode();
+                } else {
+                    render3D();
+                }
             }
         });
 
@@ -565,14 +553,16 @@
             rotX += (cy - lastMouseY) * 0.006;
             rotX = Math.max(0.2, Math.min(1.2, rotX));
             lastMouseX = cx; lastMouseY = cy;
-            if (!isWireframeMode && currentTrack) {
-                if (active3DViewMode === 'photoreal') renderPhotorealisticCloudMode();
-                else render3D();
+            if (!isWireframeMode) {
+                if (active3DViewMode === 'photoreal') {
+                    renderPhotorealisticCloudMode();
+                } else {
+                    render3D();
+                }
             }
         }, { passive: true });
 
         function updateCanvasSize() {
-            if (!container || !canvas) return;
             let rect = container.getBoundingClientRect();
             let w = rect.width > 0 ? rect.width : (container.clientWidth || window.innerWidth);
             let h = rect.height > 0 ? rect.height : (container.clientHeight || window.innerHeight * 0.65);
@@ -583,12 +573,13 @@
         }
 
         function render3D() {
-            if (!currentTrack || !ctx) return;
+            if (!currentTrack) return;
 
             if (active3DViewMode === 'volumetric') {
                 renderVolumetricCloudMode();
                 return;
             }
+
             if (active3DViewMode === 'photoreal') {
                 renderPhotorealisticCloudMode();
                 return;
@@ -597,12 +588,9 @@
             updateCanvasSize();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            let matrix = currentTrack.grid_matrix;
-            if (!Array.isArray(matrix) || matrix.length === 0) return;
+            let matrix = currentTrack.grid_matrix || [];
             let rows = matrix.length;
-            let cols = Array.isArray(matrix[0]) ? matrix[0].length : 0;
-            if (cols === 0) return;
-
+            let cols = rows > 0 ? matrix[0].length : 0;
             let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
@@ -610,10 +598,9 @@
             let columnsToDraw = [];
 
             for (let r = 0; r < rows; r++) {
-                if (!Array.isArray(matrix[r])) continue;
                 for (let c = 0; c < cols; c++) {
                     let val = matrix[r][c];
-                    if (typeof val !== 'number' || val <= 0) continue;
+                    if (val <= 0) continue;
 
                     let x = (c - cols / 2 + 0.5) * 1.0;
                     let y = (r - rows / 2 + 0.5) * 1.0;
@@ -645,16 +632,12 @@
         }
 
         function renderVolumetricCloudMode() {
-            if (!currentTrack || !ctx) return;
             updateCanvasSize();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            let matrix = currentTrack.grid_matrix;
-            if (!Array.isArray(matrix) || matrix.length === 0) return;
+            let matrix = currentTrack.grid_matrix || [];
             let rows = matrix.length;
-            let cols = Array.isArray(matrix[0]) ? matrix[0].length : 0;
-            if (cols === 0) return;
-
+            let cols = rows > 0 ? matrix[0].length : 0;
             let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
@@ -662,10 +645,9 @@
             let columnsToDraw = [];
 
             for (let r = 0; r < rows; r++) {
-                if (!Array.isArray(matrix[r])) continue;
                 for (let c = 0; c < cols; c++) {
                     let val = matrix[r][c];
-                    if (typeof val !== 'number' || val <= 0) continue;
+                    if (val <= 0) continue;
 
                     let x = (c - cols / 2 + 0.5) * 1.0;
                     let y = (r - rows / 2 + 0.5) * 1.0;
@@ -704,98 +686,88 @@
             });
         }
 
+        // MOTORE FOTOREALISTICO CORRETTO (Visibile, Organico e Volumetrico)
         function renderPhotorealisticCloudMode() {
-            if (!currentTrack || !ctx) return;
             updateCanvasSize();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            let matrix = currentTrack.grid_matrix;
-            if (!Array.isArray(matrix) || matrix.length === 0) return;
-            let rows = matrix.length;
-            let cols = Array.isArray(matrix[0]) ? matrix[0].length : 0;
-            if (cols === 0) return;
+            if (!currentTrack || !currentTrack.grid_matrix) return;
 
-            let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
+            let matrix = currentTrack.grid_matrix;
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
-            // 1. INCUDINE SUPERIORE SEMITRASPARENTE
-            ctx.globalCompositeOperation = 'screen';
-            for (let i = 4; i >= 1; i--) {
-                let p = i / 4;
-                let yOffset = p * 10 * scale * 0.4;
-                let radius = scale * (4.0 + (p * 3.5));
-
-                let drawX = cx;
-                let drawY = cy - yOffset * cosX;
-
-                let grad = ctx.createRadialGradient(drawX, drawY, 2, drawX, drawY, radius);
-                grad.addColorStop(0, 'rgba(0, 191, 255, 0.12)');
-                grad.addColorStop(1, 'rgba(0, 60, 120, 0)');
-
-                ctx.save();
-                ctx.translate(drawX, drawY);
-                ctx.scale(1, 0.4);
-                ctx.fillStyle = grad;
-                ctx.beginPath();
-                ctx.arc(0, 0, radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-
-            // 2. CORE CENTRALE VERTICALE A COLONNE OTTIMIZZATE
             let columnsToDraw = [];
+
             for (let r = 0; r < rows; r++) {
-                if (!Array.isArray(matrix[r])) continue;
                 for (let c = 0; c < cols; c++) {
                     let val = matrix[r][c];
-                    if (typeof val !== 'number' || val <= 2) continue;
+                    if (val <= 0) continue;
 
                     let x = (c - cols / 2 + 0.5) * 1.0;
                     let y = (r - rows / 2 + 0.5) * 1.0;
                     let px_base = cx + (x * cosY - y * sinY) * scale;
                     let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
                     let depth = (x * sinY + y * cosY) * cosX;
-                    let h_px = val * scale * 0.70;
+                    let h_px = val * scale * 0.75;
 
                     columnsToDraw.push({
-                        color: getColor(val),
-                        depth: depth,
-                        px: px_base,
-                        py: py_base - (h_px * 0.5),
-                        height: h_px,
-                        width: scale * 0.8
+                        val: val, color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base, h_px: h_px
                     });
                 }
             }
 
+            // Ordinamento in profondità (Painter's algorithm)
             columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let baseRadius = scale * 0.9;
 
             columnsToDraw.forEach(col => {
-                ctx.fillStyle = col.color;
-                ctx.beginPath();
-                ctx.arc(col.px, col.py, col.width * 0.5, 0, Math.PI * 2);
-                ctx.fill();
-            });
+                let steps = 5; // fette verticali per ogni colonna
+                for (let i = 0; i <= steps; i++) {
+                    let progress = i / steps; // da 0 (base) a 1 (cima)
+                    let p_x = col.px_base;
+                    let p_y = col.py_base - (col.h_px * progress);
+                    let radius = baseRadius * (0.7 + (progress * 0.3));
 
-            ctx.globalCompositeOperation = 'source-over';
+                    let grad = ctx.createRadialGradient(p_x, p_y, 1, p_x, p_y, radius);
+                    let baseColor = col.color;
+
+                    if (progress > 0.6) {
+                        // Core superiore luminoso / Incudine
+                        grad.addColorStop(0, baseColor);
+                        grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.75)');
+                        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    } else {
+                        // Corpo centrale denso e organico
+                        grad.addColorStop(0, baseColor);
+                        grad.addColorStop(0.5, getHoloColor(baseColor, 0.65));
+                        grad.addColorStop(1, getHoloColor(baseColor, 0));
+                    }
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(p_x, p_y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
         }
 
         function runWireframeLoop() {
-            if (!isWireframeMode || !ctx) return;
+            if (!isWireframeMode) return;
             scanAngle += 0.03;
             rotY += 0.008;
 
             updateCanvasSize();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            let matrix = currentTrack ? currentTrack.grid_matrix : null;
-            if (!Array.isArray(matrix) || matrix.length === 0) return;
+            let matrix = currentTrack.grid_matrix || [];
             let rows = matrix.length;
-            let cols = Array.isArray(matrix[0]) ? matrix[0].length : 0;
-            if (cols === 0) return;
-
+            let cols = rows > 0 ? matrix[0].length : 0;
             let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
@@ -803,10 +775,9 @@
             let columnsToDraw = [];
 
             for (let r = 0; r < rows; r++) {
-                if (!Array.isArray(matrix[r])) continue;
                 for (let c = 0; c < cols; c++) {
                     let val = matrix[r][c];
-                    if (typeof val !== 'number' || val <= 0) continue;
+                    if (val <= 0) continue;
 
                     let x = (c - cols / 2 + 0.5) * 1.0;
                     let y = (r - rows / 2 + 0.5) * 1.0;
