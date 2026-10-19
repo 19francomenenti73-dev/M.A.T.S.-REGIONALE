@@ -191,12 +191,11 @@
             text-align: center;
         }
 
+        /* Marker Centroide Dinamico */
         .centroid-pulse {
             width: 16px; height: 16px;
-            background: #ffcc00;
-            border: 2px solid #fff;
             border-radius: 50%;
-            box-shadow: 0 0 10px #ffcc00;
+            border: 2px solid #fff;
         }
     </style>
 </head>
@@ -223,9 +222,7 @@
         <div class="modal-info-bar">
             <div>
                 <b id="modal-cell-id" style="font-size: 15px; color: #00bfff;">Core 3D</b>
-                <div class="meteo-grid-info" id="modal-cell-details">
-                    <!-- Compilato dinamicamente via JS -->
-                </div>
+                <div class="meteo-grid-info" id="modal-cell-details"></div>
             </div>
             <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
         </div>
@@ -283,7 +280,6 @@
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Mappa Esri World Imagery (originale MATS, gratuita)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 18,
             attribution: 'Tiles &copy; Esri'
@@ -292,16 +288,33 @@
         let radarLayer = L.layerGroup().addTo(map);
         let vectorsLayer = L.layerGroup().addTo(map);
 
+        // Mappatura Rigorosa Colori della Riflettività dBZ
         function getColor(val) {
-            if (val > 10) return '#ff0000';
-            if (val > 6) return '#ffcc00';
-            return '#00bfff';
+            if (val >= 14) return '#ff00ff'; // Magenta (Grandine / Core Estremo)
+            if (val > 10) return '#ff0000';  // Rosso (Severo)
+            if (val > 8)  return '#ff7700';  // Arancione (Intenso)
+            if (val > 6)  return '#ffcc00';  // Giallo (Moderato)
+            if (val > 3)  return '#00cc00';  // Verde (Pioggia)
+            return '#00bfff';                // Ciano (Debole)
         }
 
         function getHoloColor(hex, alpha) {
+            if (hex === '#ff00ff') return `rgba(255, 0, 255, ${alpha})`;
             if (hex === '#ff0000') return `rgba(255, 0, 0, ${alpha})`;
+            if (hex === '#ff7700') return `rgba(255, 119, 0, ${alpha})`;
             if (hex === '#ffcc00') return `rgba(255, 204, 0, ${alpha})`;
+            if (hex === '#00cc00') return `rgba(0, 204, 0, ${alpha})`;
             return `rgba(0, 191, 255, ${alpha})`;
+        }
+
+        // Estrae il colore della massima riflettività presente nella matrice della cella
+        function getMaxCoreColor(track) {
+            let maxVal = 0;
+            let matrix = track.grid_matrix || [];
+            matrix.forEach(row => {
+                row.forEach(val => { if (val > maxVal) maxVal = val; });
+            });
+            return getColor(maxVal);
         }
 
         async function loadMasterData() {
@@ -316,7 +329,6 @@
             }
         }
 
-        // Calcola punti laterali a una determinata distanza in km e angolo
         function getOffsetLatLng(lat, lon, bearing, distanceKm) {
             const R = 6371;
             const rad = Math.PI / 180;
@@ -357,57 +369,59 @@
                     }
                 }
 
-                // 1. PERCORSO REALE TRACCIATO (Azzurro continuo)
+                // COLORE RIGOROSO IN BASE ALLA RIFLETTIVITÀ MASSIMA DEL CORE
+                let coreHexColor = getMaxCoreColor(track);
+                let coreRgbaFill = getHoloColor(coreHexColor, 0.22);
+
+                // 1. Vettore reale percorso
                 if (track.actual_path && track.actual_path.length > 0) {
                     let fullPath = [center, ...track.actual_path];
-                    L.polyline(fullPath, { color: '#00bfff', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
+                    L.polyline(fullPath, { color: coreHexColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
                 }
 
-                // 2. CONO PREDITTIVO A 6 ORE STILE NOAA URAGANI
+                // 2. Cono predittivo NOAA a 6 ore con COLORE RIGOROSO DEL CORE
                 let speedKmh = track.speed_kmh || 40;
-                let dirDeg = track.direction_deg || 45; // Direzione di avanzamento in gradi
+                let dirDeg = track.direction_deg || 45;
                 let lat0 = center[0], lon0 = center[1];
 
                 let predPoints = [[lat0, lon0]];
                 let coneLeft = [], coneRight = [];
 
-                // Genera posizioni e cono ogni ora fino a +6 ore
                 for (let h = 1; h <= 6; h++) {
-                    let dist = (speedKmh * h); // km percorsi
+                    let dist = (speedKmh * h);
                     let pos = getOffsetLatLng(lat0, lon0, dirDeg, dist);
                     predPoints.push(pos);
 
-                    // Larghezza cono d'incertezza NOAA (cresce con il tempo: +5 km ogni ora)
                     let coneRadius = 5 + (h * 6);
                     let leftP = getOffsetLatLng(pos[0], pos[1], dirDeg - 90, coneRadius);
                     let rightP = getOffsetLatLng(pos[0], pos[1], dirDeg + 90, coneRadius);
 
                     coneLeft.push(leftP);
-                    coneRight.unshift(rightP); // Invertito per chiudere il poligono
+                    coneRight.unshift(rightP);
 
-                    // Tasselli temporali +1h, +3h, +6h
                     if (h === 1 || h === 3 || h === 6) {
-                        L.circleMarker(pos, { radius: 4, color: '#ffcc00', fillColor: '#ff5500', fillOpacity: 0.9 }).addTo(vectorsLayer)
+                        L.circleMarker(pos, { radius: 4, color: coreHexColor, fillColor: coreHexColor, fillOpacity: 0.9 }).addTo(vectorsLayer)
                             .bindTooltip(`+${h}h (${Math.round(dist)}km)`, { permanent: false, direction: 'top' });
                     }
                 }
 
-                // Poligono a cono sfumato NOAA
+                // Poligono Cono NOAA con il colore del nucleo (es. Magenta per celle severe)
                 let conePolygon = [ [lat0, lon0], ...coneLeft, ...coneRight ];
                 L.polygon(conePolygon, {
-                    color: '#ff5500',
-                    weight: 1.5,
+                    color: coreHexColor,
+                    weight: 2,
                     dashArray: '4, 4',
-                    fillColor: '#ff7700',
-                    fillOpacity: 0.18
+                    fillColor: coreHexColor,
+                    fillOpacity: 0.22
                 }).addTo(vectorsLayer);
 
-                // Asse centrale del cono (Tratteggiato arancione)
-                L.polyline(predPoints, { color: '#ffcc00', weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
+                L.polyline(predPoints, { color: coreHexColor, weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
 
-                // Marker Centrale
+                // Centroide Marker con lo stesso colore del cono/core
+                let customIconHtml = `<div class="centroid-pulse" style="background:${coreHexColor}; box-shadow:0 0 12px ${coreHexColor};"></div>`;
                 let centroidIcon = L.divIcon({
-                    className: 'centroid-pulse',
+                    className: 'custom-centroid-node',
+                    html: customIconHtml,
                     iconSize: [16, 16],
                     iconAnchor: [8, 8]
                 });
@@ -425,21 +439,21 @@
             currentTrack = track;
             rotY = 0.0; rotX = 0.5; isWireframeMode = false;
             document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
-            document.getElementById('modal-cell-id').innerText = `${track.id} | ${track.intensity || '45 dBZ'}`;
+            
+            let dbzVal = track.dbz || (42 + Math.round((track.vil || 30) % 18));
+            let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
+            let echoTopMed = track.echo_top || Math.min(13.8, Math.round((8.5 + (dbzVal / 10.0)) * 10) / 10);
+            let hailRisk = dbzVal >= 52 ? "MOLTO ELEVATO (>85%)" : (dbzVal >= 46 ? "ELEVATO (60-80%)" : (dbzVal >= 40 ? "MODERATO (30-50%)" : "BASSO (<15%)"));
+            let hailColor = dbzVal >= 52 ? '#ff00ff' : (dbzVal >= 46 ? '#ff0000' : '#ffcc00');
+            let lightningActivity = dbzVal >= 50 ? "EXTREME (>50 sf/min)" : (dbzVal >= 44 ? "ATTIVA (20-40 sf/min)" : "DEBOLE/ISOLATA");
 
-            // Calcolo parametri meteorologici realistici su scala mediterranea
-            let dbzVal = 42 + Math.round((track.vil || 30) % 18);
-            let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10; // Equazione Marshall-Palmer
-            let echoTopMed = Math.min(13.8, Math.round((8.5 + (dbzVal / 10.0)) * 10) / 10); // Calibrato su bacino Mediterraneo (max ~13-14 km)
-            let hailRisk = dbzVal > 50 ? "ELEVATO (70-90%)" : (dbzVal > 45 ? "MODERATO (30-50%)" : "BASSO (<15%)");
-            let lightningActivity = dbzVal > 48 ? "MOLTO ALTA (>40 sf/min)" : (dbzVal > 42 ? "ATTIVA (15-30 sf/min)" : "DEBOLE/ISOLATA");
-
+            document.getElementById('modal-cell-id').innerText = `${track.id} | ${dbzVal} dBZ`;
             document.getElementById('modal-cell-details').innerHTML = `
-                <div><b>Riflettività:</b> <span style="color:#00ffcc;">${dbzVal} dBZ</span></div>
+                <div><b>Riflettività Max:</b> <span style="color:${getMaxCoreColor(track)}; font-weight:bold;">${dbzVal} dBZ</span></div>
                 <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
                 <div><b>VIL Core:</b> ${track.vil || 45} kg/m²</div>
                 <div><b>Echo Top (Med):</b> <span style="color:#ffcc00;">${echoTopMed} km</span></div>
-                <div><b>Rischio Grandine:</b> <span style="color:${dbzVal > 48 ? '#ff3b30' : '#ffcc00'};">${hailRisk}</span></div>
+                <div><b>Rischio Grandine:</b> <span style="color:${hailColor}; font-weight:bold;">${hailRisk}</span></div>
                 <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
                 <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
                 <div><b>ETA Cono +6h:</b> Target Costiero</div>
