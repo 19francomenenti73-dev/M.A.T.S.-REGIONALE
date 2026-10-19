@@ -271,7 +271,7 @@
         var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Mappa Esri World Imagery (gratuita, senza API key)
+        // Mappa Esri World Imagery (gratuita, originale MATS, senza API key)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 18,
             attribution: 'Tiles &copy; Esri'
@@ -308,7 +308,8 @@
                 radarLayer.addLayer(rLayer);
             }
 
-            let structures = data.structures || [];
+            // CORRETTO: legge macro_structures (generato dal tracker Python) o structures come fallback
+            let structures = data.macro_structures || data.structures || [];
             document.getElementById('total-count').innerText = structures.length;
             document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
 
