@@ -1,0 +1,38 @@
+name: M.A.T.S. Regioni Auto Update
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-mats-regions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests numpy opencv-python-headless Pillow
+
+      - name: Run MATS Regioni Tracker
+        run: python tracker.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add centroids.json centroids_*.json profiles/
+          git diff --staged --quiet || git commit -m "Auto-update MATS Regioni radar & short-range analytics"
+          git push || echo "Nessun aggiornamento da inviare"
+          
