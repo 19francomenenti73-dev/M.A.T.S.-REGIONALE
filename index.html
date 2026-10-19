@@ -72,7 +72,6 @@
             100% { opacity: 0.6; text-shadow: 0 0 2px rgba(0, 191, 255, 0.4); }
         }
 
-        /* Barra di scorrimento superiore per le Regioni */
         .regions-nav-bar {
             position: absolute;
             top: 70px;
@@ -291,7 +290,6 @@
         <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
     </div>
 
-    <!-- Barra di navigazione rapida Regioni -->
     <div class="regions-nav-bar" id="regions-bar"></div>
 
     <div id="map"></div>
@@ -313,7 +311,6 @@
         </div>
     </div>
 
-    <!-- Full-Screen 3D Modal Viewer con Ologramma Live -->
     <div id="viewer-3d-modal">
         <div class="modal-info-bar">
             <div>
@@ -356,7 +353,6 @@
         var vectorsLayer = L.layerGroup().addTo(map);
         var currentSelectedRegion = "Nazionale";
 
-        // Inizializzazione Barra Regioni
         const barContainer = document.getElementById('regions-bar');
         REGIONS_LIST.forEach(reg => {
             let btn = document.createElement('button');
@@ -397,12 +393,12 @@
         }
 
         function loadTrackerData() {
-            let cleanReg = currentSelectedRegion.toLowerCase().replace(/[\s'-]/g, '_');
+            let cleanReg = currentSelectedRegion.toLowerCase().replace(/['\s-]/g, '_');
             let jsonFile = currentSelectedRegion === "Nazionale" ? "centroids.json" : "centroids_" + cleanReg + ".json";
             
             fetch(jsonFile + '?' + new Date().getTime())
                 .then(res => {
-                    if (!res.ok) throw new Error("File non trovato");
+                    if (!res.ok) throw new Error("File non trovato: " + jsonFile);
                     return res.json();
                 })
                 .then(data => {
@@ -481,16 +477,13 @@
                     });
                 })
                 .catch(err => {
-                    console.log('Errore caricamento JSON regione, fallback su nazionale:', err);
+                    console.log('Errore caricamento file JSON regione:', err);
                     if (currentSelectedRegion !== "Nazionale") {
                         selectRegion("Nazionale");
                     }
                 });
         }
 
-        // ==========================================
-        // ENGINE 3D VOXEL STABILE + MODALITÀ OLOGRAMMA LIVE
-        // ==========================================
         var currentTrack = null;
         var rotX = 0.5;
         var rotY = 0.0;
@@ -521,4 +514,15 @@
 
         function toggleHologramMode() {
             isHologramActive = !isHologramActive;
-            document.getElementById('holo-btn').innerText = isHologramActive ? "DISATTIVA OLOGRAMMA" : "ATTIVA OLOGR
+            document.getElementById('holo-btn').innerText = isHologramActive ? "DISATTIVA OLOGRAMMA" : "ATTIVA OLOGRAMMA LIVE";
+            if (isHologramActive) {
+                runHologramLoop();
+            } else {
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+                render3D();
+            }
+        }
+
+        var canvas = document.getElementById('viewer-canvas');
+        var ctx = canvas.getContext('2d');
+        var container = document.getElementById('canva
