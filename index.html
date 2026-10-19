@@ -453,7 +453,10 @@
         function open3DViewer(track) {
             currentTrack = track;
             rotY = 0.0; rotX = 0.5;
-            set3DMode('voxel');
+            document.getElementById('viewer-3d-modal').style.display = 'flex';
+            setTimeout(() => {
+                set3DMode('voxel');
+            }, 50);
 
             let dbzVal = track.dbz || (42 + Math.round((track.vil || 30) % 18));
             let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
@@ -473,8 +476,6 @@
                 <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
                 <div><b>ETA Cono +6h:</b> Target Costiero</div>
             `;
-
-            document.getElementById('viewer-3d-modal').style.display = 'flex';
         }
 
         function close3DViewer() {
@@ -487,23 +488,27 @@
             active3DViewMode = mode;
             if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
 
-            document.getElementById('btn-mode-voxel').classList.remove('active');
-            document.getElementById('btn-mode-holo').classList.remove('active');
-            document.getElementById('btn-mode-vol').classList.remove('active');
+            let btnVoxel = document.getElementById('btn-mode-voxel');
+            let btnHolo = document.getElementById('btn-mode-holo');
+            let btnVol = document.getElementById('btn-mode-vol');
             let btnPhoto = document.getElementById('btn-mode-photoreal');
+
+            if(btnVoxel) btnVoxel.classList.remove('active');
+            if(btnHolo) btnHolo.classList.remove('active');
+            if(btnVol) btnVol.classList.remove('active');
             if(btnPhoto) btnPhoto.classList.remove('active');
 
             if (mode === 'voxel') {
                 isWireframeMode = false;
-                document.getElementById('btn-mode-voxel').classList.add('active');
+                if(btnVoxel) btnVoxel.classList.add('active');
                 render3D();
             } else if (mode === 'holo') {
                 isWireframeMode = true;
-                document.getElementById('btn-mode-holo').classList.add('active');
+                if(btnHolo) btnHolo.classList.add('active');
                 runWireframeLoop();
             } else if (mode === 'volumetric') {
                 isWireframeMode = false;
-                document.getElementById('btn-mode-vol').classList.add('active');
+                if(btnVol) btnVol.classList.add('active');
                 render3D();
             } else if (mode === 'photoreal') {
                 isWireframeMode = false;
@@ -568,9 +573,8 @@
                 return;
             }
 
-            // 1. VISTA VOXEL ORIGINALE
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
+            canvas.width = container.clientWidth || window.innerWidth;
+            canvas.height = container.clientHeight || window.innerHeight * 0.65;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             let matrix = currentTrack.grid_matrix || [];
@@ -616,10 +620,9 @@
             });
         }
 
-        // 2. VISTA NUBE VOLUMETRICA
         function renderVolumetricCloudMode() {
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
+            canvas.width = container.clientWidth || window.innerWidth;
+            canvas.height = container.clientHeight || window.innerHeight * 0.65;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             let matrix = currentTrack.grid_matrix || [];
@@ -673,10 +676,9 @@
             });
         }
 
-        // 4. VISTA FOTOREALISTICA REALE (Modello Volumetrico Organico a fette orizzontali)
         function renderPhotorealisticCloudMode() {
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
+            canvas.width = container.clientWidth || window.innerWidth;
+            canvas.height = container.clientHeight || window.innerHeight * 0.65;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!currentTrack) return;
@@ -770,14 +772,13 @@
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // 3. VISTA HOLO WIREFRAME
         function runWireframeLoop() {
             if (!isWireframeMode) return;
             scanAngle += 0.03;
             rotY += 0.008;
 
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
+            canvas.width = container.clientWidth || window.innerWidth;
+            canvas.height = container.clientHeight || window.innerHeight * 0.65;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             let matrix = currentTrack.grid_matrix || [];
