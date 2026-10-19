@@ -280,7 +280,7 @@
             } else if (regionCoords[regiano]) {
                 map.setView(regionCoords[regiano], 8);
             }
-            loadMasterData();
+            if (window.lastLoadedData) renderRegionsData(window.lastLoadedData);
         }
 
         var map = L.map('map', {zoomControl: false}).setView([42.5, 12.5], 6);
@@ -320,13 +320,10 @@
             return getColor(maxVal);
         }
 
-        // CORRETTO: Carica dinamicamente i file regionali/nazionali corretti (es. centroids_nazionale.json)
         async function loadMasterData() {
             try {
-                let regSlug = currentActiveRegion.toLowerCase().replace(/[-\s]/g, '_').replace(/'/g, '');
-                let fileName = 'centroids_' + regSlug + '.json';
-                let res = await fetch(fileName + '?t=' + Date.now());
-                if (!res.ok) throw new Error("Errore caricamento " + fileName);
+                let res = await fetch('centrones.json?t=' + Date.now());
+                if (!res.ok) throw new Error("Errore dati");
                 let data = await res.json();
                 window.lastLoadedData = data;
                 renderRegionsData(data);
@@ -366,6 +363,14 @@
             structures.forEach(track => {
                 let center = track.center;
                 if (!center || center.length < 2) return;
+
+                if (currentActiveRegion !== 'Nazionale') {
+                    let coords = regionCoords[currentActiveRegion];
+                    if (coords) {
+                        let dist = Math.abs(center[0] - coords[0]) + Math.abs(center[1] - coords[1]);
+                        if (dist > 3.2) return;
+                    }
+                }
 
                 let coreMaxColor = getMaxCoreColor(track);
                 let coreBgFill = getDolColor(coreMaxColor, 0.22);
@@ -626,3 +631,4 @@
     </script>
 </body>
 </html>
+,
