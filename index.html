@@ -686,7 +686,7 @@
             });
         }
 
-        // MOTORE FOTOREALISTICO CORRETTO (Visibile, Organico e Volumetrico)
+        // MOTORE POINT-CLOUD OLOGRAFICO A RIFLETTIVITÀ INVERSA (Incudine alta/ampia semitrasparente + Core denso e basso)
         function renderPhotorealisticCloudMode() {
             updateCanvasSize();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -696,64 +696,94 @@
             let matrix = currentTrack.grid_matrix;
             let rows = matrix.length;
             let cols = rows > 0 ? matrix[0].length : 0;
-            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
             let scale = Math.min(canvas.width, canvas.height) / 22;
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
-            let columnsToDraw = [];
+            let pointCloud = [];
+
+            // 1. GENERAZIONE INCUDINE ESTERNA (Anvil Point Cloud: Ciano/Verde, molto alta, larga, semitrasparente)
+            let echoTopMax = currentTrack.echo_top || 13.0; // km di altezza massima
+            let anvilHeightPx = echoTopMax * scale * 0.75;
+            let anvilWidthFactor = 1.8; // Estensione orizzontale dell'incudine
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     let val = matrix[r][c];
                     if (val <= 0) continue;
 
-                    let x = (c - cols / 2 + 0.5) * 1.0;
-                    let y = (r - rows / 2 + 0.5) * 1.0;
-                    let px_base = cx + (x * cosY - y * sinY) * scale;
-                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
-                    let depth = (x * sinY + y * cosY) * cosX;
-                    let h_px = val * scale * 0.75;
+                    let baseX = (c - cols / 2 + 0.5) * anvilWidthFactor;
+                    let baseY = (r - rows / 2 + 0.5) * anvilWidthFactor;
 
-                    columnsToDraw.push({
-                        val: val, color: getColor(val), depth: depth,
-                        px_base: px_base, py_base: py_base, h_px: h_px
-                    });
+                    // Irrorazione di punti trasparenti per la copertura dell'incudine superiore
+                    for (let hP = 0.4; hP <= 1.0; hP += 0.08) {
+                        let h_px = anvilHeightPx * hP;
+                        let spread = (1.0 + Math.pow(hP, 1.5) * 0.8); // Si allarga man mano che sale
+                        
+                        let px_base = cx + ((baseX * spread) * cosY - (baseY * spread) * sinY) * scale;
+                        let py_base = cy + ((baseX * spread) * sinY + (baseY * spread) * cosY) * sinX * scale;
+                        let depth = ((baseX * spread) * sinY + (baseY * spread) * cosY) * cosX;
+                        let p_y = py_base - (h_px * cosX);
+
+                        pointCloud.push({
+                            x: p_x = px_base,
+                            y: p_y,
+                            depth: depth - (h_px * 0.05),
+                            radius: 1.8,
+                            color: hP > 0.85 ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 220, 255, 0.18)',
+                            glow: false
+                        });
+                    }
+                }
+            }
+
+            // 2. GENERAZIONE CORE DENSE AD ALTA RIFLETTIVITÀ (Updraft / Core precipitoso: Denso, saturo, più opaco e basso)
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let baseX = (c - cols / 2 + 0.5) * 1.0;
+                    let baseY = (r - rows / 2 + 0.5) * 1.0;
+                    
+                    let px_base = cx + (baseX * cosY - baseY * sinY) * scale;
+                    let py_base = cy + (baseX * sinY + baseY * cosY) * sinX * scale;
+                    let depth = (baseX * sinY + baseY * cosY) * cosX;
+                    
+                    // Il core cresce in altezza in proporzione al valore di dBZ reale (più basso dell'incudine)
+                    let coreH = val * scale * 0.70;
+
+                    for (let h = 0; h <= coreH; h += 2.5) {
+                        let p_y = py_base - (h * cosX);
+                        let isHighCore = val >= 10;
+                        
+                        pointCloud.push({
+                            x: px_base,
+                            y: p_y,
+                            depth: depth - (h * 0.08),
+                            radius: isHighCore ? 2.5 : 2.0,
+                            color: getHoloColor(getColor(val), isHighCore ? 0.9 : 0.6),
+                            glow: isHighCore
+                        });
+                    }
                 }
             }
 
             // Ordinamento in profondità (Painter's algorithm)
-            columnsToDraw.sort((a, b) => a.depth - b.depth);
-            let baseRadius = scale * 0.9;
+            pointCloud.sort((a, b) => a.depth - b.depth);
 
-            columnsToDraw.forEach(col => {
-                let steps = 5; // fette verticali per ogni colonna
-                for (let i = 0; i <= steps; i++) {
-                    let progress = i / steps; // da 0 (base) a 1 (cima)
-                    let p_x = col.px_base;
-                    let p_y = col.py_base - (col.h_px * progress);
-                    let radius = baseRadius * (0.7 + (progress * 0.3));
-
-                    let grad = ctx.createRadialGradient(p_x, p_y, 1, p_x, p_y, radius);
-                    let baseColor = col.color;
-
-                    if (progress > 0.6) {
-                        // Core superiore luminoso / Incudine
-                        grad.addColorStop(0, baseColor);
-                        grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.75)');
-                        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                    } else {
-                        // Corpo centrale denso e organico
-                        grad.addColorStop(0, baseColor);
-                        grad.addColorStop(0.5, getHoloColor(baseColor, 0.65));
-                        grad.addColorStop(1, getHoloColor(baseColor, 0));
-                    }
-
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(p_x, p_y, radius, 0, Math.PI * 2);
-                    ctx.fill();
+            // Disegno dei micro-punti dell'ologramma
+            pointCloud.forEach(p => {
+                ctx.fillStyle = p.color;
+                if (p.glow) {
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = 8;
                 }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                if (p.glow) ctx.shadowBlur = 0;
             });
         }
 
