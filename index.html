@@ -424,16 +424,16 @@
 
       let dbzVal = track.dbz || 45;
       let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
-      let echoTopVal = track.echo_top || 11.7;
+      let echoTopVal = track.echo_top || 11.8;
       let hailRisk = dbzVal >= 52 ? "MOLTO ELEVATO (>85%)" : (dbzVal >= 46 ? "ELEVATO (>60%)" : "MODERATO");
       let hailColor = dbzVal >= 52 ? "#ff00ff" : (dbzVal >= 46 ? "#ff000d" : "#ffcc00");
       let lightningActivity = dbzVal >= 50 ? "ESTREMA (>50 sf/min)" : "INTENSA";
 
-      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-15'} | ${dbzVal} dBZ`;
+      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51712-18'} | ${dbzVal} dBZ`;
       document.getElementById('modal-cell-details').innerHTML = `
         <div><b>Riflettività Max:</b> <span style="color:${getColor(dbzVal)};">${dbzVal} dBZ</span></div>
         <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
-        <div><b>VIL Core:</b> ${track.vil || 68.4} kg/m²</div>
+        <div><b>VIL Core:</b> ${track.vil || 69.6} kg/m²</div>
         <div><b>Echo Top (Wd):</b> ${echoTopVal} km</div>
         <div><b>Rischio Grandine:</b> <span style="color:${hailColor};">${hailRisk}</span></div>
         <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
@@ -702,9 +702,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO VOLUMETRICO CONTINUO
-    // Base: Piano Radar Continuo Sfumato al Suolo
-    // Struttura 3D: Nube Fluerente a Volume Continuo (senza cubi separati o capovolgimenti)
+    // 4. FOTOREALISTICO (Base radar solida + Cilindri core solidi + Coni trasparenti in espansione)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -714,8 +712,11 @@
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      // --- 1. TERRENO RADAR CONTINUO AL SUOLO ---
-      let groundPoints = [];
+      let renderItems = [];
+      let centerC = cols / 2;
+      let centerR = rows / 2;
+
+      // 1. TERRENO RADAR CONTINUO AL SUOLO
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -724,34 +725,18 @@
           let y = (r - rows / 2) * scale;
           let rx = x * cosY - y * sinY;
           let ry = x * sinY + y * cosY;
-          groundPoints.push({
+          renderItems.push({
+            type: 'ground',
+            depth: ry * cosX - 0.5,
             px: cx + rx,
             py: cy + ry * sinX,
-            depth: ry * cosX,
-            color: getColor(val),
-            val: val
+            w: scale * 0.95,
+            color: getColor(val)
           });
         }
       }
-      groundPoints.sort((a, b) => a.depth - b.depth);
 
-      // Disegno piano di riflettività sfumato continuo al suolo
-      groundPoints.forEach(p => {
-        let grad = ctx.createRadialGradient(p.px, p.py, 2, p.px, p.py, scale * 1.2);
-        grad.addColorStop(0, getHoleColor(p.color, 0.9));
-        grad.addColorStop(0.6, getHoleColor(p.color, 0.5));
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.ellipse(p.px, p.py, scale * 1.1, scale * 0.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // --- 2. STRUTTURA VOLUMETRICA CONTINUA DELLA CELLA ---
-      // Strati: I nuclei ad alta intensità (rosso/magenta) nascono in basso poggiati a terra, 
-      // mentre le riflettività più basse (verde/azzurro) si espandono e sfumano in alto formando l'incudine.
-      let cloudNodes = [];
-
+      // 2. STRUTTURA A CONI E CILINDRI
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -766,54 +751,78 @@
           let basePy = cy + ry * sinX;
           let depth = ry * cosX;
 
-          let columnHeight = val * scale * 0.7;
-          let steps = Math.max(8, Math.floor(val * 1.2));
+          let totalH = val * scale * 0.65;
+          let numLayers = 10;
+          let layerH = totalH / numLayers;
 
-          for (let s = 0; s <= steps; s++) {
-            let norm = s / steps; // 0 = terreno, 1 = cima dell'incudine
-            let currentPy = basePy - (columnHeight * norm);
+          for (let l = 0; l < numLayers; l++) {
+            let norm = l / (numLayers - 1); // 0 = terra, 1 = cima
+            let layerPy = basePy - (layerH * (l + 1));
+            let layerDepth = depth - (l * 0.01);
 
-            // Gradiente cromatico fisico: Magenta/Rosso alla base -> Giallo/Verde al centro -> Azzurro/Trasparente in cima
-            let currentVal;
-            if (norm < 0.35) {
-              currentVal = val; // Core profondo
-            } else if (norm < 0.7) {
-              currentVal = Math.min(val, 8); // Zona intermedia
+            let isCore = (val >= 8); // Giallo, Rosso, Magenta
+
+            if (isCore && norm <= 0.65) {
+              // Cilindri verticali solidi per i core (interrotti sotto l'incudine)
+              renderItems.push({
+                type: 'solid_core',
+                depth: layerDepth,
+                px: basePx,
+                py: layerPy,
+                h: layerH,
+                w: scale * 0.85,
+                color: getColor(val)
+              });
             } else {
-              currentVal = 3; // Copertura dell'incudine in quota
+              // Cono trasparente in espansione (più stretto a terra, largo in quota per verde e blu)
+              let expansionFactor = 0.55 + (norm * 0.75);
+              let conicallyShiftedX = cx + ((x * expansionFactor) * cosY - (y * expansionFactor) * sinY);
+              let conicallyShiftedY = cy + ((x * expansionFactor) * sinY + (y * expansionFactor) * cosY) * sinX - (layerH * (l + 1));
+
+              renderItems.push({
+                type: 'transparent_cone',
+                depth: layerDepth,
+                px: conicallyShiftedX,
+                py: conicallyShiftedY,
+                w: scale * 0.9 * expansionFactor,
+                h: layerH,
+                color: getColor(val),
+                alpha: 0.2 + (norm * 0.25)
+              });
             }
-
-            // Espansione volumetrica dell'incudine in alta quota
-            let nodeRadius = (scale * 0.7) * (1 + norm * 0.6);
-
-            cloudNodes.push({
-              px: basePx,
-              py: currentPy,
-              depth: depth - (norm * 0.05),
-              radius: nodeRadius,
-              color: getColor(currentVal),
-              opacity: norm < 0.35 ? 0.85 : (0.45 * (1 - norm * 0.5))
-            });
           }
         }
       }
 
-      cloudNodes.sort((a, b) => a.depth - b.depth);
+      renderItems.sort((a, b) => a.depth - b.depth);
 
-      // Rendering a fusione cumulativa soffusa (modalità Screen) per il volume sfumato reale
-      ctx.globalCompositeOperation = 'screen';
-      cloudNodes.forEach(node => {
-        let grad = ctx.createRadialGradient(node.px, node.py, node.radius * 0.1, node.px, node.py, node.radius);
-        grad.addColorStop(0, getHoleColor(node.color, node.opacity));
-        grad.addColorStop(0.7, getHoleColor(node.color, node.opacity * 0.4));
-        grad.addColorStop(1, 'transparent');
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(node.px, node.py, node.radius, 0, Math.PI * 2);
-        ctx.fill();
+      renderItems.forEach(item => {
+        if (item.type === 'ground') {
+          ctx.fillStyle = item.color;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py - 3, item.w, 6);
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === 'solid_core') {
+          ctx.fillStyle = item.color;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === 'transparent_cone') {
+          ctx.strokeStyle = item.color;
+          ctx.fillStyle = getHoleColor(item.color, item.alpha);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+          ctx.fill();
+          ctx.stroke();
+        }
       });
-      ctx.globalCompositeOperation = 'source-over';
     }
 
     loadMasterData();
