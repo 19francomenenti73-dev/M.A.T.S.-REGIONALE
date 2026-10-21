@@ -104,7 +104,7 @@
       align-items: center;
       white-space: nowrap;
     }
-    /* Modale Viewer 3D Coerente con 4 Modalità */
+    /* Modale Viewer 3D */
     #viewer-3d-modal {
       display: none;
       position: fixed;
@@ -117,7 +117,7 @@
     }
     .modal-info-bar {
       position: relative;
-      margin-top: 12px;
+      margin-top: 10px;
       width: 92%;
       max-width: 650px;
       display: flex;
@@ -155,17 +155,17 @@
       align-items: center;
       cursor: grab;
       position: relative;
-      margin-top: 6px;
+      margin-top: 4px;
     }
     #canvas-3d-container:active { cursor: grabbing; }
     .mode-selector-bar {
       position: relative;
-      margin-top: 6px;
+      margin-top: 4px;
       display: flex;
-      gap: 6px;
+      gap: 5px;
       z-index: 2005;
       background: rgba(10, 10, 10, 0.85);
-      padding: 5px 10px;
+      padding: 4px 8px;
       border-radius: 20px;
       border: 1px solid rgba(0, 191, 255, 0.3);
       backdrop-filter: blur(8px);
@@ -176,10 +176,10 @@
       background: rgba(30, 30, 30, 0.9);
       color: #ccc;
       border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 5px 10px;
+      padding: 5px 9px;
       border-radius: 10px;
       font-weight: bold;
-      font-size: 9.5px;
+      font-size: 9px;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -190,8 +190,8 @@
       box-shadow: 0 0 10px rgba(0, 191, 255, 0.6);
     }
     .controls-hint {
-      margin-top: 4px;
-      font-size: 10px;
+      margin-top: 3px;
+      font-size: 9.5px;
       color: #888;
       text-align: center;
       z-index: 2004;
@@ -408,8 +408,8 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-        </script>
-          <script>
+  </script>
+    <script>
     let currentTrack = null;
     let rotX = 0.45, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
@@ -517,52 +517,96 @@
       }
     }
 
+    /* NUOVO MOTORE VOXEL INVERTITO / STRATIFICATO A BLOCCHI COMPATTI (Ancorato al suolo, incudine larga in alto, nucleo intenso concentrato al centro/basso) */
     function renderVoxelMode() {
       let matrix = currentTrack.grid_matrix || [
         [0,20,35,20,0],[20,40,55,40,20],[35,55,65,55,35],[20,40,55,40,20],[0,20,35,20,0]
       ];
       let rows = matrix.length, cols = rows > 0 ? matrix[0].length : 0;
       let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
-      let scale = Math.min(canvas.width, canvas.height) / 22;
+      let scale = Math.min(canvas.width, canvas.height) / 18;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
-      let columnsToDraw = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          let val = matrix[r][c];
-          if (val <= 0) continue;
-          let x = (c - cols / 2 + 0.5) * 1.0;
-          let y = (r - rows / 2 + 0.5) * 1.0;
-          let px_base = cx - (x * cosY - y * sinY) * scale;
-          let py_base = cy - (x * sinY + y * cosY) * cosX * scale;
-          let depth = (x * sinY + y * cosY) * cosX;
-          let h_px = val * scale * 0.75;
+      // Disegno del cubo contenitore trasparente di base (ancorato al suolo)
+      let baseGridSize = Math.max(rows, cols) * scale * 0.6;
+      ctx.strokeStyle = 'rgba(0, 191, 255, 0.25)';
+      ctx.lineWidth = 1;
+      for(let step = 0; step <= 4; step++) {
+        let altH = step * scale * 0.8;
+        ctx.beginPath();
+        let p1 = getRotatedProj(-baseGridSize, -baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
+        let p2 = getRotatedProj(baseGridSize, -baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
+        let p3 = getRotatedProj(baseGridSize, baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
+        let p4 = getRotatedProj(-baseGridSize, baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
+        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.closePath();
+        ctx.stroke();
+      }
 
-          columnsToDraw.push({
-            color: getColor(val), depth: depth,
-            px_base: px_base, py_top: py_base - h_px, h_px: h_px
-          });
+      let blocksToDraw = [];
+      let totalLevels = 6; // Stratificazione verticale del cubo
+
+      for (let lvl = 0; lvl < totalLevels; lvl++) {
+        let heightFraction = lvl / (totalLevels - 1); // 0 = base al suolo, 1 = cima del fungo
+        let currentAlt = (totalLevels - lvl) * scale * 0.65; // Inversione: strati alti in cima, bassi al suolo
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            let val = matrix[r][c];
+            if (val <= 0) continue;
+
+            // Logica geometrica del fungo: in alto (lvl 0-1) l'azzurro/verde si estende largo; al centro/basso i valori alti (rosso/magenta) si concentrano e si restringono
+            let distFromCenter = Math.hypot(r - rows/2, c - cols/2);
+            let maxDist = Math.hypot(rows/2, cols/2);
+            let normDist = maxDist > 0 ? distFromCenter / maxDist : 0;
+
+            if (heightFraction < 0.4 && val < 40 && normDist > 0.45) continue; // Crea la forma a fungo smussata ai bordi superiori
+
+            let x = (c - cols / 2) * scale * 0.7;
+            let y = (r - rows / 2) * scale * 0.7;
+            let proj = getRotatedProj(x, y, currentAlt, cx, cy, scale, cosX, sinX, cosY, sinY);
+
+            let colorHex = getColor(val);
+            let alpha = 0.35 + (heightFraction * 0.4); // Più trasparenti in alto, più opachi al nucleo
+
+            blocksToDraw.push({
+              color: colorHex,
+              alpha: alpha,
+              depth: proj.depth,
+              x: proj.x,
+              y: proj.y,
+              size: scale * 0.68
+            });
+          }
         }
       }
 
-      columnsToDraw.sort((a, b) => a.depth - b.depth);
-      let barW = scale * 0.85;
+      blocksToDraw.sort((a, b) => a.depth - b.depth);
 
-      columnsToDraw.forEach(col => {
-        ctx.fillStyle = col.color;
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-        ctx.lineWidth = 1;
+      blocksToDraw.forEach(b => {
+        ctx.fillStyle = getHoleColor(b.color, b.alpha);
+        ctx.strokeStyle = b.color;
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
-        ctx.fill(); ctx.stroke();
+        ctx.rect(b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
+        ctx.fill();
+        ctx.stroke();
       });
+    }
+
+    function getRotatedProj(x, y, z, cx, cy, scale, cosX, sinX, cosY, sinY) {
+      let rx = x * cosY - y * sinY;
+      let ry = x * sinY + y * cosY;
+      let depth = ry * cosX - z * sinX;
+      let projX = cx + rx;
+      let projY = cy - (ry * sinX + z * cosX);
+      return { x: projX, y: projY, depth: depth };
     }
 
     function renderVolumetricMode() {
       let matrix = currentTrack.grid_matrix || [[0,30,50,30,0],[30,50,65,50,30],[0,30,50,30,0]];
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
       let scale = Math.min(canvas.width, canvas.height) / 22;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
@@ -604,38 +648,65 @@
     }
 
     function renderIsosuperficiSchematicMode() {
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
-      let scale = Math.min(canvas.width, canvas.height) / 18;
-      let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 20;
+      let scale = Math.min(canvas.width, canvas.height) / 16;
+      let dbz = currentTrack.dbz || 45;
+      let coreColor = getColor(dbz);
 
-      // Rendering Isosuperfici e Anvil stratificato (Sat IR / RGB / Radar composite)
-      let layers = 18;
+      // Base radar al suolo
+      ctx.save();
+      ctx.strokeStyle = '#00bfff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 60, scale * 3.5, scale * 1.2, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(0, 191, 255, 0.2)';
+      ctx.fill();
+      ctx.restore();
+
+      // Incudine e profili stratificati (Sat IR / RGB / Radar composite)
+      let layers = 14;
       ctx.globalCompositeOperation = 'screen';
       for (let i = layers; i >= 1; i--) {
         let p = i / layers;
-        let yOffset = p * 12 * scale * 0.45;
-        let radius = scale * (3.0 + (p * 5.0));
-        let worldX = 0, worldZ = (p - 0.5) * 5;
-        let rX = worldX * cosY - worldZ * sinY;
-        let rZ = worldX * sinY + worldZ * cosY;
-        let drawX = cx + rX;
-        let drawY = cy - yOffset * cosX + rZ * sinX;
+        let yOffset = p * scale * 4.5;
+        let radius = scale * (2.0 + (p * 3.5));
+        
+        let drawX = cx;
+        let drawY = cy - yOffset;
 
         let grad = ctx.createRadialGradient(drawX, drawY, 2, drawX, drawY, radius);
-        grad.addColorStop(0, 'rgba(0, 191, 255, 0.22)');
-        grad.addColorStop(0.5, 'rgba(255, 204, 0, 0.12)');
-        grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+        if (i > 10) {
+          grad.addColorStop(0, 'rgba(0, 191, 255, 0.45)');
+          grad.addColorStop(1, 'rgba(0, 100, 150, 0)');
+        } else if (i > 5) {
+          grad.addColorStop(0, 'rgba(255, 204, 0, 0.55)');
+          grad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+        } else {
+          grad.addColorStop(0, coreColor);
+          grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+        }
 
         ctx.save();
         ctx.translate(drawX, drawY);
-        ctx.scale(1, 0.4 + (rotX * 0.15));
+        ctx.scale(1, 0.4);
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
+
+      // Nucleo convettivo centrale ad alta intensità
+      ctx.save();
+      ctx.fillStyle = coreColor;
+      ctx.shadowColor = coreColor;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(cx, cy - scale * 1.5, scale * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
       ctx.globalCompositeOperation = 'source-over';
     }
 
@@ -650,7 +721,7 @@
 
       let matrix = currentTrack.grid_matrix || [[0,30,50,30,0],[30,50,65,50,30],[0,30,50,30,0]];
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
       let scale = Math.min(canvas.width, canvas.height) / 22;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
