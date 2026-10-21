@@ -406,8 +406,8 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-      </script>
-        <script>
+  </script>
+    <script>
     let currentTrack = null;
     let rotX = -0.35, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
@@ -702,17 +702,17 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (Orientamento esatto confermato: Incudine in alto, colonne dei core sotto)
+    // 4. FOTOREALISTICO (Corretto: Incudine in alto, core riflettivi che scendono verso il basso)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 - 20;
+      let cx = canvas.width / 2, cy = canvas.height / 2 - 30;
       let scale = Math.min(canvas.width, canvas.height) / 22;
 
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      // 1. TERRENO RADAR
+      // 1. TERRENO RADAR AL SUOLO
       let groundItems = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -725,7 +725,7 @@
           groundItems.push({
             depth: ry * cosX - 0.5,
             px: cx + rx,
-            py: cy + ry * sinX + 120,
+            py: cy + ry * sinX + 130,
             w: scale * 0.95,
             color: getColor(val)
           });
@@ -742,7 +742,7 @@
         ctx.stroke();
       });
 
-      // 2. COLONNE VERTICALI (Incudine in alto, core sotto)
+      // 2. COLONNE VERTICALI (Crescita verso il BASSO: Incudine in alto, core che scendono)
       let columns = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -755,7 +755,7 @@
           let ry = x * sinY + y * cosY;
 
           let basePx = cx + rx;
-          let basePy = cy + ry * sinX + 120;
+          let topPy = cy + ry * sinX - 20; // Punto di partenza superiore (l'incudine)
           let depth = ry * cosX;
 
           let totalH = val * scale * 0.65;
@@ -764,11 +764,12 @@
 
           let layers = [];
           for (let l = 0; l < numLayers; l++) {
-            let norm = l / (numLayers - 1);
-            let layerPy = basePy - (layerH * (l + 1));
+            let norm = l / (numLayers - 1); // 0 = in alto (incudine), 1 = in basso (verso il suolo)
+            let layerPy = topPy + (layerH * l); // Crescita verso il BASSO (+)
             let isCore = (val >= 8);
 
-            let widthFactor = 1.5 - (norm * 0.8);
+            // Incudine larga in alto, core stretti e solidi che scendono in basso
+            let widthFactor = 0.7 + ((1 - norm) * 0.8);
             let blockW = scale * 0.9 * widthFactor;
 
             layers.push({
@@ -778,7 +779,7 @@
               w: blockW,
               h: layerH,
               color: getColor(val),
-              alpha: 0.2 + ((1 - norm) * 0.25)
+              alpha: 0.2 + (norm * 0.25)
             });
           }
 
