@@ -429,11 +429,11 @@
       let hailColor = dbzVal >= 52 ? "#ff00ff" : (dbzVal >= 46 ? "#ff000d" : "#ffcc00");
       let lightningActivity = dbzVal >= 50 ? "ESTREMA (>50 sf/min)" : "INTENSA";
 
-      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-8'} | ${dbzVal} dBZ`;
+      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-15'} | ${dbzVal} dBZ`;
       document.getElementById('modal-cell-details').innerHTML = `
         <div><b>Riflettività Max:</b> <span style="color:${getColor(dbzVal)};">${dbzVal} dBZ</span></div>
         <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
-        <div><b>VIL Core:</b> ${track.vil || 63.6} kg/m²</div>
+        <div><b>VIL Core:</b> ${track.vil || 68.4} kg/m²</div>
         <div><b>Echo Top (Wd):</b> ${echoTopVal} km</div>
         <div><b>Rischio Grandine:</b> <span style="color:${hailColor};">${hailRisk}</span></div>
         <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
@@ -473,7 +473,7 @@
     window.addEventListener('mouseup', () => { isDragging = false; });
     window.addEventListener('touchend', () => { isDragging = false; });
 
-    // ROTAZIONE SOLO ORIZZONTALE SUL PIANO (Bloccata rotazione verticale per evitare capovolgimento)
+    // ROTAZIONE SOLO ORIZZONTALE
     window.addEventListener('mousemove', e => {
       if (!isDragging) return;
       rotY += (e.clientX - lastMouseX) * 0.01;
@@ -522,7 +522,7 @@
       ];
     }
 
-    // 1. VOXEL 3D: Colonne piene e solide, ancorate al centro
+    // 1. VOXEL 3D
     function renderVoxelMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -572,7 +572,7 @@
       });
     }
 
-    // 2. HOLO WIREFRAME: Scheletro a parallelepipedi trasparenti con scansione laser
+    // 2. HOLO WIREFRAME
     function runWireframeLoop() {
       if (active3DViewMode !== 'holo') return;
       scanAngle += 0.04;
@@ -643,7 +643,7 @@
       wireframeAnimId = requestAnimationFrame(runWireframeLoop);
     }
 
-    // 3. NUBE VOLUMETRICA: Griglia densa di blocchi stratificati
+    // 3. NUBE VOLUMETRICA
     function renderVolumetricMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -702,10 +702,9 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (PSEUDO 3D UNIFICATO):
-    // - Base terreno: Mappa radar solida 2D che copia esattamente i colori della matrice.
-    // - Colonne unificate: I nuclei intensi formano la base solida, mentre la copertura superiore (azzurro/verde) 
-    //   si sviluppa verticalmente sugli stessi assi esatti, senza alcuno slittamento laterale.
+    // 4. FOTOREALISTICO VOLUMETRICO CONTINUO
+    // Base: Piano Radar Continuo Sfumato al Suolo
+    // Struttura 3D: Nube Fluerente a Volume Continuo (senza cubi separati o capovolgimenti)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -715,89 +714,106 @@
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      let renderItems = [];
-
+      // --- 1. TERRENO RADAR CONTINUO AL SUOLO ---
+      let groundPoints = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
           if (val <= 0) continue;
           let x = (c - cols / 2) * scale;
           let y = (r - rows / 2) * scale;
+          let rx = x * cosY - y * sinY;
+          let ry = x * sinY + y * cosY;
+          groundPoints.push({
+            px: cx + rx,
+            py: cy + ry * sinX,
+            depth: ry * cosX,
+            color: getColor(val),
+            val: val
+          });
+        }
+      }
+      groundPoints.sort((a, b) => a.depth - b.depth);
 
+      // Disegno piano di riflettività sfumato continuo al suolo
+      groundPoints.forEach(p => {
+        let grad = ctx.createRadialGradient(p.px, p.py, 2, p.px, p.py, scale * 1.2);
+        grad.addColorStop(0, getHoleColor(p.color, 0.9));
+        grad.addColorStop(0.6, getHoleColor(p.color, 0.5));
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(p.px, p.py, scale * 1.1, scale * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // --- 2. STRUTTURA VOLUMETRICA CONTINUA DELLA CELLA ---
+      // Strati: I nuclei ad alta intensità (rosso/magenta) nascono in basso poggiati a terra, 
+      // mentre le riflettività più basse (verde/azzurro) si espandono e sfumano in alto formando l'incudine.
+      let cloudNodes = [];
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let val = matrix[r][c];
+          if (val <= 0) continue;
+
+          let x = (c - cols / 2) * scale;
+          let y = (r - rows / 2) * scale;
           let rx = x * cosY - y * sinY;
           let ry = x * sinY + y * cosY;
 
-          let px = cx + rx;
-          let py = cy + ry * sinX;
+          let basePx = cx + rx;
+          let basePy = cy + ry * sinX;
           let depth = ry * cosX;
-          let w = scale * 0.95;
-          let totalH = val * scale * 0.65;
 
-          // 1. Tassello di base sul terreno (mappa radar 2D)
-          renderItems.push({
-            type: 'ground',
-            depth: depth - 0.1,
-            px: px,
-            py: py,
-            w: w,
-            color: getColor(val)
-          });
+          let columnHeight = val * scale * 0.7;
+          let steps = Math.max(8, Math.floor(val * 1.2));
 
-          // 2. Colonna verticale stratificata (nucleo solido in basso, strati trasparenti in alto)
-          let numLayers = Math.max(6, Math.floor(val * 0.85));
-          let layerH = totalH / numLayers;
+          for (let s = 0; s <= steps; s++) {
+            let norm = s / steps; // 0 = terreno, 1 = cima dell'incudine
+            let currentPy = basePy - (columnHeight * norm);
 
-          for (let l = 0; l < numLayers; l++) {
-            let layerTop = py - (layerH * (l + 1));
-            let layerDepth = depth - (l * 0.01);
-            
-            // I livelli inferiori delle celle intense (val >= 8) sono solidi; i superiori o le celle leggere sono trasparenti
-            let isCoreSolid = (l < numLayers * 0.4) && (val >= 8);
+            // Gradiente cromatico fisico: Magenta/Rosso alla base -> Giallo/Verde al centro -> Azzurro/Trasparente in cima
+            let currentVal;
+            if (norm < 0.35) {
+              currentVal = val; // Core profondo
+            } else if (norm < 0.7) {
+              currentVal = Math.min(val, 8); // Zona intermedia
+            } else {
+              currentVal = 3; // Copertura dell'incudine in quota
+            }
 
-            renderItems.push({
-              type: isCoreSolid ? 'solid_core' : 'transparent_anvil',
-              depth: layerDepth,
-              px: px,
-              py: layerTop,
-              h: layerH,
-              w: w,
-              color: getColor(val)
+            // Espansione volumetrica dell'incudine in alta quota
+            let nodeRadius = (scale * 0.7) * (1 + norm * 0.6);
+
+            cloudNodes.push({
+              px: basePx,
+              py: currentPy,
+              depth: depth - (norm * 0.05),
+              radius: nodeRadius,
+              color: getColor(currentVal),
+              opacity: norm < 0.35 ? 0.85 : (0.45 * (1 - norm * 0.5))
             });
           }
         }
       }
 
-      renderItems.sort((a, b) => a.depth - b.depth);
+      cloudNodes.sort((a, b) => a.depth - b.depth);
 
-      renderItems.forEach(item => {
-        if (item.type === 'ground') {
-          ctx.fillStyle = item.color;
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py - 3, item.w, 6);
-          ctx.fill();
-          ctx.stroke();
-        } else if (item.type === 'solid_core') {
-          ctx.fillStyle = item.color;
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
-          ctx.fill();
-          ctx.stroke();
-        } else {
-          ctx.strokeStyle = item.color;
-          ctx.fillStyle = getHoleColor(item.color, 0.28);
-          ctx.lineWidth = 1;
-          ctx.globalCompositeOperation = 'screen';
-          ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
-          ctx.fill();
-          ctx.stroke();
-          ctx.globalCompositeOperation = 'source-over';
-        }
+      // Rendering a fusione cumulativa soffusa (modalità Screen) per il volume sfumato reale
+      ctx.globalCompositeOperation = 'screen';
+      cloudNodes.forEach(node => {
+        let grad = ctx.createRadialGradient(node.px, node.py, node.radius * 0.1, node.px, node.py, node.radius);
+        grad.addColorStop(0, getHoleColor(node.color, node.opacity));
+        grad.addColorStop(0.7, getHoleColor(node.color, node.opacity * 0.4));
+        grad.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(node.px, node.py, node.radius, 0, Math.PI * 2);
+        ctx.fill();
       });
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     loadMasterData();
