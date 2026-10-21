@@ -104,7 +104,7 @@
       align-items: center;
       white-space: nowrap;
     }
-    /* Modale Viewer 3D */
+    /* Modale Viewer 3D Coerente con 4 Modalità */
     #viewer-3d-modal {
       display: none;
       position: fixed;
@@ -112,16 +112,19 @@
       background: rgba(0, 0, 0, 0.92);
       z-index: 2000;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
+      align-items: center;
     }
     .modal-info-bar {
-      position: absolute;
-      top: 15px; left: 15px; right: 15px;
+      position: relative;
+      margin-top: 12px;
+      width: 92%;
+      max-width: 650px;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       background: rgba(15, 15, 15, 0.95);
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-radius: 13px;
       border: 1px solid rgba(0, 191, 255, 0.3);
       box-shadow: 0 0 15px rgba(0,0,0,0.8);
@@ -130,38 +133,39 @@
     .meteo-grid-info {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 4px 12px;
-      font-size: 10.5px;
+      gap: 2px 10px;
+      font-size: 10px;
       color: #ddd;
-      margin-top: 4px;
+      margin-top: 3px;
     }
     .close-btn {
       background: #ff3b30;
       color: #fff;
       border: none;
-      padding: 8px 14px;
+      padding: 6px 12px;
       border-radius: 6px;
       font-weight: bold;
       cursor: pointer;
     }
     #canvas-3d-container {
       width: 100%;
-      height: 65vh;
+      height: 48vh;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: grab;
       position: relative;
+      margin-top: 6px;
     }
     #canvas-3d-container:active { cursor: grabbing; }
     .mode-selector-bar {
-      position: absolute;
-      bottom: 20px;
+      position: relative;
+      margin-top: 6px;
       display: flex;
       gap: 6px;
       z-index: 2005;
       background: rgba(10, 10, 10, 0.85);
-      padding: 6px 10px;
+      padding: 5px 10px;
       border-radius: 20px;
       border: 1px solid rgba(0, 191, 255, 0.3);
       backdrop-filter: blur(8px);
@@ -172,10 +176,10 @@
       background: rgba(30, 30, 30, 0.9);
       color: #ccc;
       border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 6px 12px;
-      border-radius: 12px;
+      padding: 5px 10px;
+      border-radius: 10px;
       font-weight: bold;
-      font-size: 10px;
+      font-size: 9.5px;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -186,13 +190,11 @@
       box-shadow: 0 0 10px rgba(0, 191, 255, 0.6);
     }
     .controls-hint {
-      position: absolute;
-      bottom: 75px;
-      font-size: 11px;
+      margin-top: 4px;
+      font-size: 10px;
       color: #888;
       text-align: center;
       z-index: 2004;
-      width: 100%;
     }
     .centroid-pulse {
       width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff;
@@ -214,7 +216,7 @@
   <div id="viewer-3d-modal">
     <div class="modal-info-bar">
       <div>
-        <b id="modal-cell-id" style="font-size: 15px; color: #00bfff;">Core 3D</b>
+        <b id="modal-cell-id" style="font-size: 14px; color: #00bfff;">Core 3D</b>
         <div class="meteo-grid-info" id="modal-cell-details"></div>
       </div>
       <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
@@ -222,12 +224,12 @@
     <div id="canvas-3d-container">
       <canvas id="viewer-canvas"></canvas>
     </div>
-    <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
+    <div class="controls-hint">Trascina per ruotare a 360° | Rotazione orizzontale e verticale protetta</div>
     <div class="mode-selector-bar">
       <button class="mode-btn active" id="btn-mode-voxel" onclick="set3DMode('voxel')">VOXEL 3D</button>
       <button class="mode-btn" id="btn-mode-holo" onclick="set3DMode('holo')">HOLO WIREFRAME</button>
-      <button class="mode-btn" id="btn-mode-vol" onclick="set3DMode('volumetric')">NUBE VOLUMETRICA</button>
-      <button class="mode-btn" id="btn-mode-photoreal" onclick="set3DMode('photoreal')">ISOSUPERFICI / SCHEMATICO</button>
+      <button class="mode-btn" id="btn-mode-volumetric" onclick="set3DMode('volumetric')">NUBE VOLUMETRICA</button>
+      <button class="mode-btn" id="btn-mode-isosuperfici" onclick="set3DMode('isosuperfici')">ISOSUPERFICI / SCHEMATICO</button>
     </div>
   </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -365,7 +367,7 @@
 
         let coreHexColor = getMaxCoreColor(track);
 
-        // TRACCIATO EFFETTIVO IN BLU (Ultimi 40 min - actual_path)
+        // 1. Tracciato storico effettivo in blu (ultimi 40 min)
         if (track.actual_path && track.actual_path.length > 0) {
           let fullActualPath = [center, ...track.actual_path];
           L.polyline(fullActualPath, { color: '#00bfff', weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
@@ -375,13 +377,14 @@
         let speedKmh = track.speed_kmh || 35;
         let dirDeg = track.direction_deg || 45;
 
+        // 2. Cono predittivo stile NOAA a 6 ore
         let predPoints = [[lat0, lon0]];
         let coneLeft = [], coneRight = [];
         for (let h = 1; h <= 6; h++) {
-          let dist = (speedKmh * (h * 10 / 60));
+          let dist = speedKmh * h;
           let pos = getOffsetLatlng(lat0, lon0, dirDeg, dist);
           predPoints.push(pos);
-          let coneRadius = 5 + (h * 6);
+          let coneRadius = 6 + (h * 8);
           let leftP = getOffsetLatlng(pos[0], pos[1], dirDeg - 90, coneRadius);
           let rightP = getOffsetLatlng(pos[0], pos[1], dirDeg + 90, coneRadius);
           coneLeft.push(leftP);
@@ -405,24 +408,21 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-          </script>
-            <script>
+        </script>
+          <script>
     let currentTrack = null;
-    let rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
-    let isWireframeMode = false;
-    let wireframeAnimId = null;
+    let rotX = 0.45, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
+    let wireframeAnimId = null;
     let scanAngle = 0;
 
     function open3DViewer(track) {
       currentTrack = track;
-      rotY = 0.0; rotX = 0.5;
+      rotY = 0.0; rotX = 0.45;
       let modal = document.getElementById('viewer-3d-modal');
       modal.style.display = 'flex';
 
-      setTimeout(() => {
-        set3DMode('voxel');
-      }, 80);
+      setTimeout(() => { set3DMode('voxel'); }, 60);
 
       let dbzVal = track.dbz || 45;
       let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
@@ -445,39 +445,24 @@
     function close3DViewer() {
       document.getElementById('viewer-3d-modal').style.display = 'none';
       if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
-      currentTrack = null; isWireframeMode = false;
+      currentTrack = null;
     }
 
     function set3DMode(mode) {
       active3DViewMode = mode;
       if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
 
-      let btnVoxel = document.getElementById('btn-mode-voxel');
-      let btnHolo = document.getElementById('btn-mode-holo');
-      let btnVol = document.getElementById('btn-mode-vol');
-      let btnPhoto = document.getElementById('btn-mode-photoreal');
+      ['voxel', 'holo', 'volumetric', 'isosuperfici'].forEach(m => {
+        let btn = document.getElementById(`btn-mode-${m}`);
+        if(btn) btn.classList.remove('active');
+      });
+      let activeBtn = document.getElementById(`btn-mode-${mode}`);
+      if(activeBtn) activeBtn.classList.add('active');
 
-      if(btnVoxel) btnVoxel.classList.remove('active');
-      if(btnHolo) btnHolo.classList.remove('active');
-      if(btnVol) btnVol.classList.remove('active');
-      if(btnPhoto) btnPhoto.classList.remove('active');
-
-      if (mode === 'voxel') {
-        isWireframeMode = false;
-        if(btnVoxel) btnVoxel.classList.add('active');
-        render3D();
-      } else if (mode === 'holo') {
-        isWireframeMode = true;
-        if(btnHolo) btnHolo.classList.add('active');
+      if (mode === 'holo') {
         runWireframeLoop();
-      } else if (mode === 'volumetric') {
-        isWireframeMode = false;
-        if(btnVol) btnVol.classList.add('active');
-        renderVolumetricCloudMode();
-      } else if (mode === 'photoreal') {
-        isWireframeMode = false;
-        if(btnPhoto) btnPhoto.classList.add('active');
-        renderPhotorealisticCloudMode();
+      } else {
+        renderCurrentMode();
       }
     }
 
@@ -493,28 +478,20 @@
     window.addEventListener('mousemove', e => {
       if (!isDragging) return;
       rotY += (e.clientX - lastMouseX) * 0.01;
-      rotX += (e.clientY - lastMouseY) * 0.006;
-      rotX = Math.max(0.2, Math.min(1.2, rotX));
+      rotX += (e.clientY - lastMouseY) * 0.005;
+      rotX = Math.max(0.15, Math.min(0.85, rotX)); // Impedisce il capottamento verticale
       lastMouseX = e.clientX; lastMouseY = e.clientY;
-      if (!isWireframeMode) {
-        if (active3DViewMode === 'photoreal') renderPhotorealisticCloudMode();
-        else if (active3DViewMode === 'volumetric') renderVolumetricCloudMode();
-        else render3D();
-      }
+      if (active3DViewMode !== 'holo') renderCurrentMode();
     });
 
     window.addEventListener('touchmove', e => {
       if (!isDragging || e.touches.length !== 1) return;
       let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
       rotY += (cx - lastMouseX) * 0.01;
-      rotX += (cy - lastMouseY) * 0.006;
-      rotX = Math.max(0.2, Math.min(1.2, rotX));
+      rotX += (cy - lastMouseY) * 0.005;
+      rotX = Math.max(0.15, Math.min(0.85, rotX)); // Impedisce il capottamento verticale
       lastMouseX = cx; lastMouseY = cy;
-      if (!isWireframeMode) {
-        if (active3DViewMode === 'photoreal') renderPhotorealisticCloudMode();
-        else if (active3DViewMode === 'volumetric') renderVolumetricCloudMode();
-        else render3D();
-      }
+      if (active3DViewMode !== 'holo') renderCurrentMode();
     }, { passive: true });
 
     function updateCanvasSize() {
@@ -526,26 +503,26 @@
       }
     }
 
-    function render3D() {
+    function renderCurrentMode() {
       updateCanvasSize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (!currentTrack) return;
 
-      if (active3DViewMode === 'volumetric') {
-        renderVolumetricCloudMode();
-        return;
+      if (active3DViewMode === 'voxel') {
+        renderVoxelMode();
+      } else if (active3DViewMode === 'volumetric') {
+        renderVolumetricMode();
+      } else if (active3DViewMode === 'isosuperfici') {
+        renderIsosuperficiSchematicMode();
       }
-      if (active3DViewMode === 'photoreal') {
-        renderPhotorealisticCloudMode();
-        return;
-      }
+    }
 
+    function renderVoxelMode() {
       let matrix = currentTrack.grid_matrix || [
         [0,20,35,20,0],[20,40,55,40,20],[35,55,65,55,35],[20,40,55,40,20],[0,20,35,20,0]
       ];
-      let rows = matrix.length;
-      let cols = rows > 0 ? matrix[0].length : 0;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+      let rows = matrix.length, cols = rows > 0 ? matrix[0].length : 0;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
       let scale = Math.min(canvas.width, canvas.height) / 22;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
@@ -582,18 +559,15 @@
       });
     }
 
-    function renderVolumetricCloudMode() {
-      updateCanvasSize();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!currentTrack) return;
+    function renderVolumetricMode() {
       let matrix = currentTrack.grid_matrix || [[0,30,50,30,0],[30,50,65,50,30],[0,30,50,30,0]];
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
       let scale = Math.min(canvas.width, canvas.height) / 22;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
-      let columnsToDraw = [];
+      let particles = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -607,7 +581,7 @@
 
           let stepSize = Math.max(1, Math.floor(maxH / 10));
           for (let h = 0; h <= maxH; h += stepSize) {
-            columnsToDraw.push({
+            particles.push({
               val: val, color: getColor(val), depth: depth - (h * 0.05),
               x: px_base, y: py_base - (h * cosX), radius: scale * 0.45
             });
@@ -615,9 +589,9 @@
         }
       }
 
-      columnsToDraw.sort((a, b) => a.depth - b.depth);
+      particles.sort((a, b) => a.depth - b.depth);
       ctx.globalCompositeOperation = 'screen';
-      columnsToDraw.forEach(pt => {
+      particles.forEach(pt => {
         ctx.fillStyle = pt.color;
         ctx.shadowColor = pt.color;
         ctx.shadowBlur = pt.val >= 10 ? 10 : 4;
@@ -629,33 +603,29 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    function renderPhotorealisticCloudMode() {
-      updateCanvasSize();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!currentTrack) return;
-      let matrix = currentTrack.grid_matrix || [[0,30,50,30,0],[30,50,65,50,30],[0,30,50,30,0]];
-      let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
-      let scale = Math.min(canvas.width, canvas.height) / 20;
+    function renderIsosuperficiSchematicMode() {
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
+      let scale = Math.min(canvas.width, canvas.height) / 18;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
-      let anvilLayers = 20;
+      // Rendering Isosuperfici e Anvil stratificato (Sat IR / RGB / Radar composite)
+      let layers = 18;
       ctx.globalCompositeOperation = 'screen';
-      for (let i = anvilLayers; i >= 1; i--) {
-        let p = i / anvilLayers;
-        let yOffset = p * 14 * scale * 0.5;
-        let radius = scale * (4.0 + (p * 6.0));
-        let worldX = 0, worldZ = (p - 0.5) * 6;
+      for (let i = layers; i >= 1; i--) {
+        let p = i / layers;
+        let yOffset = p * 12 * scale * 0.45;
+        let radius = scale * (3.0 + (p * 5.0));
+        let worldX = 0, worldZ = (p - 0.5) * 5;
         let rX = worldX * cosY - worldZ * sinY;
         let rZ = worldX * sinY + worldZ * cosY;
         let drawX = cx + rX;
         let drawY = cy - yOffset * cosX + rZ * sinX;
 
         let grad = ctx.createRadialGradient(drawX, drawY, 2, drawX, drawY, radius);
-        grad.addColorStop(0, 'rgba(0, 191, 255, 0.18)');
-        grad.addColorStop(0.5, 'rgba(0, 100, 160, 0.08)');
-        grad.addColorStop(1, 'rgba(0, 30, 80, 0)');
+        grad.addColorStop(0, 'rgba(0, 191, 255, 0.22)');
+        grad.addColorStop(0.5, 'rgba(255, 204, 0, 0.12)');
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
 
         ctx.save();
         ctx.translate(drawX, drawY);
@@ -670,7 +640,7 @@
     }
 
     function runWireframeLoop() {
-      if (!isWireframeMode) return;
+      if (active3DViewMode !== 'holo') return;
       scanAngle += 0.03;
       rotY += 0.008;
 
@@ -680,7 +650,7 @@
 
       let matrix = currentTrack.grid_matrix || [[0,30,50,30,0],[30,50,65,50,30],[0,30,50,30,0]];
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
       let scale = Math.min(canvas.width, canvas.height) / 22;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
