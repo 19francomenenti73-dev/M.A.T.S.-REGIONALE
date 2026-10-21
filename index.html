@@ -1,700 +1,632 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="theme-color" content="#07111c">
-<title>M.A.T.S. REGIONALE | Storm Tracker</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>
-:root{--bg:#07111c;--panel:#0c1b29;--cyan:#00cfff;--text:#eaf5ff;--muted:#91a9bc}
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
-#map{position:absolute;inset:0;width:100%;height:100%;background:#101d28}
-.topbar{position:absolute;z-index:1000;top:8px;left:50%;transform:translateX(-50%);width:max-content;max-width:96%;text-align:center;padding:9px 16px;background:#07111ceF;border:1px solid #23445a;border-radius:13px;box-shadow:0 4px 18px #0008;pointer-events:none}
-.brand{font-size:23px;font-weight:900;letter-spacing:3px;color:var(--cyan)}
-.subtitle{font-size:10px;letter-spacing:1px;color:#b6d7e8;margin-top:3px}
-.regions{position:absolute;z-index:1000;top:76px;left:8px;right:8px;display:flex;gap:5px;overflow-x:auto;padding:7px;background:#07111ceF;border:1px solid #23445a;border-radius:11px;scrollbar-width:thin}
-.region-btn,.action-btn{flex:0 0 auto;background:#142839;color:#dcebf6;border:1px solid #345269;border-radius:7px;padding:8px 10px;font-size:11px;font-weight:bold;cursor:pointer}
-.region-btn.active,.action-btn.active{background:#007da6;color:white;border-color:#00d5ff}
-.status{position:absolute;z-index:1000;bottom:10px;left:8px;right:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;background:#07111cf2;border:1px solid #29475b;border-radius:10px;font-size:11px}
-.status b{color:var(--cyan)}
-.status-left{display:flex;gap:12px;flex-wrap:wrap}
-#load-status{color:#b9cddd}
-#map .leaflet-control-attribution{font-size:9px}
-.centroid-icon{background:transparent;border:0}
-.centroid-dot{display:block;width:17px;height:17px;border-radius:50%;border:3px solid #fff;animation:pulse 1.8s infinite;box-shadow:0 0 10px currentColor}
-@keyframes pulse{0%,100%{transform:scale(.85);opacity:1}50%{transform:scale(1.2);opacity:.75}}
-.cell-popup{min-width:185px;color:#142331;font-size:12px;line-height:1.6}
-.cell-popup strong{color:#007fa6}
-#cell-modal{display:none;position:fixed;z-index:3000;inset:0;background:#020811f5;overflow-y:auto;padding:12px}
-#cell-modal.open{display:block}
-.modal-card{max-width:760px;width:100%;margin:0 auto;background:var(--panel);border:1px solid #24516b;border-radius:14px;overflow:hidden}
-.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px;border-bottom:1px solid #294457}
-.modal-title{font-size:15px;font-weight:bold;color:var(--cyan);overflow-wrap:anywhere}
-.modal-subtitle{font-size:11px;color:var(--muted);margin-top:5px}
-.close-btn{flex:0 0 auto;background:#a92e38;color:white;border:0;border-radius:7px;padding:10px;font-weight:bold}
-.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}
-.metric{background:#102638;border:1px solid #25455a;border-radius:8px;padding:10px;min-width:0}
-.metric label{display:block;font-size:10px;color:var(--muted);margin-bottom:6px}
-.metric strong{font-size:16px;overflow-wrap:anywhere}
-.visual-title{padding:8px 12px 0;font-size:12px;color:var(--cyan);font-weight:bold}
-#cell-canvas{display:block;width:100%;height:260px;touch-action:pan-y}
-.visual-note{padding:0 12px 12px;font-size:10px;color:var(--muted);line-height:1.5}
-.modal-actions{display:flex;gap:7px;flex-wrap:wrap;padding:0 12px 14px}
-.legend{display:flex;gap:8px;flex-wrap:wrap;font-size:10px;color:#d7e8f4}
-.legend span{display:flex;align-items:center;gap:4px}
-.swatch{width:9px;height:9px;border-radius:50%;display:inline-block}
-@media(max-width:480px){
- .topbar{top:5px;padding:7px 12px}.brand{font-size:20px}
- .regions{top:67px}
- .status{font-size:10px;bottom:6px}
- #cell-canvas{height:225px}
- .metric strong{font-size:14px}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MATS 3D - Mesoscale Advanced Tracking System</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #000000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* Header MATS */
+        .mats-header {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            text-align: center;
+            pointer-events: none;
+            background: rgba(10, 10, 10, 0.85);
+            padding: 8px 24px;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        }
+
+        .mats-title {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #00bfff;
+        }
+
+        .mats-subtitle {
+            font-size: 10px;
+            font-weight: 700;
+            color: #00bfff;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* Navbar Regioni Superiore */
+        .region-nav {
+            position: absolute;
+            top: 78px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            max-width: 95vw;
+            padding: 6px 12px;
+            background: rgba(15, 15, 15, 0.9);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            scrollbar-width: none;
+        }
+        .region-nav::-webkit-scrollbar { display: none; }
+
+        .region-btn {
+            background: rgba(30, 30, 30, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .region-btn:hover, .region-btn.active {
+            background: #00bfff;
+            color: #000;
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.5);
+        }
+
+        /* Banner Inferiore */
+        .map-banner {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 11px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        /* Modale Viewer 3D */
+        #viewer-3d-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 2000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-info-bar {
+            position: absolute;
+            top: 15px;
+            left: 15px; right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: rgba(15, 15, 15, 0.95);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 191, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+        }
+
+        .meteo-grid-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px 12px;
+            font-size: 10.5px;
+            color: #ddd;
+            margin-top: 4px;
+        }
+
+        .close-btn {
+            background: #ff3b30;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #canvas-3d-container {
+            width: 100%;
+            height: 65vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            position: relative;
+        }
+        #canvas-3d-container:active { cursor: grabbing; }
+
+        .holo-toggle-btn {
+            position: absolute;
+            bottom: 20px;
+            background: linear-gradient(45deg, #007fff, #00bfff);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 75px;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+        }
+
+        /* Marker Centroide Dinamico */
+        .centroid-pulse {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+    </style>
 </head>
 <body>
-<div id="map"></div>
-
-<header class="topbar">
- <div class="brand">M.A.T.S.</div>
- <div class="subtitle">MESOSCALE ADVANCED TRACKING SYSTEM · REGIONALE</div>
-</header>
-
-<nav class="regions" id="region-nav">
- <button class="region-btn active" data-region="Nazionale">NAZIONALE</button>
-</nav>
-
-<footer class="status">
- <div class="status-left">
-  <span>Celle: <b id="cell-count">0</b></span>
-  <span>Radar: <b id="radar-status">in attesa</b></span>
-  <span>Ultimo aggiornamento: <b id="last-update">—</b></span>
- </div>
- <span id="load-status">Caricamento dati…</span>
-</footer>
-
-<div id="cell-modal" role="dialog" aria-modal="true" aria-label="Dettaglio cella convettiva">
- <div class="modal-card">
-  <div class="modal-head">
-   <div>
-    <div class="modal-title" id="modal-title">Cella convettiva</div>
-    <div class="modal-subtitle" id="modal-position">Coordinate non disponibili</div>
-   </div>
-   <button class="close-btn" id="close-modal">CHIUDI ✕</button>
-  </div>
-  <div class="metrics" id="modal-metrics"></div>
-  <div class="visual-title">PROFILO CONVETTIVO PSEUDO-3D</div>
-  <canvas id="cell-canvas" aria-label="Rappresentazione volumetrica schematica della cella"></canvas>
-  <div class="visual-note">Pseudo-3D illustrativo con volume atmosferico sfumato. Non è una ricostruzione tridimensionale misurata: forma, altezza e dimensioni apparenti non costituiscono dati osservati.</div>
-  <div class="modal-actions">
-   <button class="action-btn" id="focus-cell">CENTRA SULLA MAPPA</button>
-   <button class="action-btn" id="refresh-data">AGGIORNA DATI</button>
-  </div>
- </div>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
- 
-"use strict";
-
-const DATA_URL = "centroids.json";
-const REFRESH_MS = 60000;
-
-const REGIONS = {
- "Abruzzo":[42.35,13.4],"Basilicata":[40.64,16.55],
- "Calabria":[39.3,16.5],"Campania":[40.85,14.26],
- "Emilia-Romagna":[44.49,11.34],
- "Friuli-Venezia Giulia":[46.06,13.23],
- "Lazio":[41.9,12.5],"Liguria":[44.4,8.93],
- "Lombardia":[45.46,9.19],"Marche":[43.61,13.51],
- "Molise":[41.56,14.66],"Piemonte":[45.07,7.68],
- "Puglia":[41.12,16.86],"Sardegna":[40.12,9.01],
- "Sicilia":[37.59,14.01],"Toscana":[43.76,11.25],
- "Trentino-Alto Adige":[46.49,11.35],
- "Umbria":[43.11,12.38],"Valle d'Aosta":[45.73,7.31],
- "Veneto":[45.44,12.31]
-};
-
-const $ = id => document.getElementById(id);
-let activeRegion = "Nazionale";
-let masterData = null;
-let selectedTrack = null;
-let trackMarkers = [];
-let requestController = null;
-let lastSuccessfulUpdate = null;
-
-const map = L.map("map", {
- zoomControl:false,
- preferCanvas:true
-}).setView([42.5,12.5],6);
-
-L.control.zoom({position:"bottomright"}).addTo(map);
-
-L.tileLayer(
- "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
- {
-  maxZoom:18,
-  attribution:"Tiles © Esri"
- }
-).addTo(map);
-
-const radarLayer = L.layerGroup().addTo(map);
-const tracksLayer = L.layerGroup().addTo(map);
-
-Object.keys(REGIONS).forEach(name=>{
- const button=document.createElement("button");
- button.className="region-btn";
- button.textContent=name;
- button.dataset.region=name;
- $("region-nav").appendChild(button);
-});
-
-$("region-nav").addEventListener("click",event=>{
- const button=event.target.closest(".region-btn");
- if(!button)return;
- activeRegion=button.dataset.region;
- document.querySelectorAll(".region-btn").forEach(b=>
-  b.classList.toggle("active",b===button)
- );
- if(activeRegion==="Nazionale"){
-  map.setView([42.5,12.5],6);
- }else{
-  map.setView(REGIONS[activeRegion],8);
- }
- if(masterData)renderData(masterData);
-});
-
-function numeric(value,fallback=null){
- const n=Number(value);
- return Number.isFinite(n)?n:fallback;
-}
-
-function cellCenter(track){
- const c=track.center;
- if(Array.isArray(c)&&c.length>=2){
-  const lat=numeric(c[0]),lon=numeric(c[1]);
-  if(lat!==null&&lon!==null&&Math.abs(lat)<=90&&Math.abs(lon)<=180)
-   return [lat,lon];
- }
- const lat=numeric(track.lat),lon=numeric(track.lon);
- if(lat!==null&&lon!==null&&Math.abs(lat)<=90&&Math.abs(lon)<=180)
-  return [lat,lon];
- return null;
-}
-
-function cellDbz(track){
- const direct=numeric(track.dbz);
- if(direct!==null)return direct;
- let maximum=null;
- (track.grid_matrix||[]).forEach(row=>{
-  if(Array.isArray(row))row.forEach(value=>{
-   const n=numeric(value);
-   if(n!==null&&(maximum===null||n>maximum))maximum=n;
-  });
- });
- return maximum;
-}
-
-function cellColor(dbz){
- if(dbz===null)return "#00cfff";
- if(dbz>=55)return "#ff35f5";
- if(dbz>=50)return "#ff2525";
- if(dbz>=45)return "#ff7900";
- if(dbz>=40)return "#ffd400";
- if(dbz>=32)return "#42ef65";
- return "#00cfff";
-}
-
-function kmOffset(lat,lon,bearing,distanceKm){
- const R=6371,rad=Math.PI/180;
- const d=distanceKm/R,b=bearing*rad;
- const p1=lat*rad,l1=lon*rad;
- const p2=Math.asin(
-  Math.sin(p1)*Math.cos(d)+Math.cos(p1)*Math.sin(d)*Math.cos(b)
- );
- const l2=l1+Math.atan2(
-  Math.sin(b)*Math.sin(d)*Math.cos(p1),
-  Math.cos(d)-Math.sin(p1)*Math.sin(p2)
- );
- return [p2/rad,l2/rad];
-}
-
-function inSelectedRegion(center){
- if(activeRegion==="Nazionale")return true;
- const region=REGIONS[activeRegion];
- return Math.abs(center[0]-region[0])<=1.8&&
-        Math.abs(center[1]-region[1])<=2.3;
-}
-
-function addRadar(data){
- radarLayer.clearLayers();
- const radar=data.radar_tile;
- if(!radar||!radar.host||!radar.path){
-  $("radar-status").textContent="non disponibile";
-  return;
- }
- const host=String(radar.host).replace(/\/+$/,"");
- const path=String(radar.path).replace(/^\/+|\/+$/g,"");
- const url=host+"/"+path+"/256/{z}/{x}/{y}/2/1_1.png";
- L.tileLayer(url,{
-  opacity:.68,
-  maxZoom:12,
-  minZoom:3,
-  attribution:"Radar: RainViewer"
- }).on("tileerror",()=>{
-  $("radar-status").textContent="errore tile";
- }).on("load",()=>{
-  $("radar-status").textContent="tile caricate";
- }).addTo(radarLayer);
- $("radar-status").textContent="richiesto";
-}
-
-function drawTrack(track,center){
- const dbz=cellDbz(track);
- const color=cellColor(dbz);
- const speed=numeric(track.speed_kmh,0);
- const direction=numeric(track.direction_deg,0);
- const history=Array.isArray(track.actual_path)?track.actual_path:[];
- const validHistory=history.filter(p=>
-  Array.isArray(p)&&p.length>=2&&
-  numeric(p[0])!==null&&numeric(p[1])!==null
- );
- const marker=L.circleMarker(center,{
-  radius:7,weight:2,color:"#ffffff",
-  fillColor:color,fillOpacity:.95
- }).addTo(tracksLayer);
-
- marker.bindTooltip(
-  `${track.id||"Cella"} · ${dbz===null?"dBZ n/d":dbz+" dBZ"}`,
-  {direction:"top"}
- );
- marker.on("click",()=>openCell(track));
-
- const icon=L.divIcon({
-  className:"centroid-icon",
-  html:`<span class="centroid-dot" style="color:${color};background:${color}"></span>`,
-  iconSize:[21,21],iconAnchor:[10,10]
- });
- const centroid=L.marker(center,{icon}).addTo(tracksLayer);
- centroid.on("click",()=>openCell(track));
-
- if(validHistory.length){
-  L.polyline([center,...validHistory],{
-   color:color,weight:3,opacity:.9
-  }).addTo(tracksLayer);
- }
-
- if(speed>0&&speed<=200&&direction>=0&&direction<=360){
-  const points=[center];
-  for(let h=1;h<=4;h++){
-   points.push(kmOffset(center[0],center[1],direction,speed*h));
-  }
-  L.polyline(points,{
-   color:"#ff4b4b",weight:2,dashArray:"7 7",opacity:.95
-  }).addTo(tracksLayer);
-
-  [1,2,4].forEach(h=>{
-   const p=points[h];
-   L.circleMarker(p,{
-    radius:3,color:"#ff7777",fillColor:"#ff3333",fillOpacity:1
-   }).bindTooltip("Proiezione teorica +"+h+" h").addTo(tracksLayer);
-  });
- }
-
- const popup=L.popup({maxWidth:240}).setContent(
-  `<div class="cell-popup"><strong>${escapeHtml(track.id||"Cella")}</strong><br>`+
-  `Riflettività: ${dbz===null?"n/d":dbz+" dBZ"}<br>`+
-  `Velocità: ${speed||"n/d"} km/h<br>`+
-  `<b>Seleziona il centroide per i dettagli</b></div>`
- );
- marker.bindPopup(popup);
- trackMarkers.push({track,center,marker,centroid});
-}
-
-function renderData(data){
- tracksLayer.clearLayers();
- trackMarkers=[];
- addRadar(data);
-
- const structures=Array.isArray(data.macro_structures)
-  ?data.macro_structures
-  :(Array.isArray(data.structures)?data.structures:[]);
-
- let shown=0;
- structures.forEach(track=>{
-  const center=cellCenter(track);
-  if(!center||!inSelectedRegion(center))return;
-  drawTrack(track,center);
-  shown++;
- });
- $("cell-count").textContent=shown;
- $("last-update").textContent=lastSuccessfulUpdate
-  ?lastSuccessfulUpdate.toLocaleTimeString("it-IT")
-  :"—";
- $("load-status").textContent=shown
-  ? "Dati visualizzati"
-  : "Nessuna cella valida nell'area selezionata";
-}
-
-async function loadData(){
- if(requestController)requestController.abort();
- requestController=new AbortController();
- $("load-status").textContent="Lettura centroids.json…";
- try{
-  const separator=DATA_URL.includes("?")?"&":"?";
-  const response=await fetch(DATA_URL+separator+"t="+Date.now(),{
-   cache:"no-store",signal:requestController.signal
-  });
-  if(!response.ok)throw new Error("HTTP "+response.status);
-  const data=await response.json();
-  if(!data||typeof data!=="object")throw new Error("JSON non valido");
-  masterData=data;
-  lastSuccessfulUpdate=new Date();
-  renderData(masterData);
- }catch(error){
-  if(error.name==="AbortError")return;
-  $("load-status").textContent=masterData
-   ?"Errore aggiornamento: mantengo gli ultimi dati"
-   :"Dati non disponibili: controllare centroids.json";
-  console.error("MATS: caricamento dati fallito",error);
-  if(masterData)renderData(masterData);
- }
-}
-
-function escapeHtml(value){
- return String(value).replace(/[&<>"']/g,char=>({
-  "&":"&amp;","<":"&lt;",">":"&gt;",
-  '"':"&quot;","'":"&#39;"
- })[char]);
-     }
- 
-function addMetric(label,value){
- const box=document.createElement("div");
- box.className="metric";
- const title=document.createElement("label");
- title.textContent=label;
- const strong=document.createElement("strong");
- strong.textContent=value;
- box.append(title,strong);
- $("modal-metrics").appendChild(box);
-}
-
-function displayValue(value,unit=""){
- const n=numeric(value);
- return n===null?"n/d":n+unit;
-}
-
-function openCell(track){
- selectedTrack=track;
- const center=cellCenter(track);
- const dbz=cellDbz(track);
-
- $("modal-title").textContent=track.id||"Cella convettiva";
- $("modal-position").textContent=center
-  ?center[0].toFixed(4)+"°, "+center[1].toFixed(4)+"°"
-  :"Coordinate non disponibili";
-
- $("modal-metrics").replaceChildren();
- addMetric("Riflettività",displayValue(dbz," dBZ"));
- addMetric("VIL",displayValue(track.vil," kg/m²"));
- addMetric("Echo Top",displayValue(track.echo_top," km"));
- addMetric("Velocità",displayValue(track.speed_kmh," km/h"));
- addMetric("Direzione",displayValue(track.direction_deg,"°"));
- addMetric("Affidabilità dichiarata",
-  displayValue(track.reliability,
-   typeof track.reliability==="string"?"":"%"));
-
- $("cell-modal").classList.add("open");
- document.body.style.overflow="auto";
- drawSchematic(dbz,track);
-}
-
-function closeCell(){
- $("cell-modal").classList.remove("open");
- document.body.style.overflow="hidden";
- selectedTrack=null;
-}
-
-$("close-modal").addEventListener("click",closeCell);
-$("cell-modal").addEventListener("click",event=>{
- if(event.target===$("cell-modal"))closeCell();
-});
-document.addEventListener("keydown",event=>{
- if(event.key==="Escape")closeCell();
-});
-
-$("focus-cell").addEventListener("click",()=>{
- if(!selectedTrack)return;
- const center=cellCenter(selectedTrack);
- if(!center)return;
- closeCell();
- map.setView(center,Math.max(map.getZoom(),9));
-});
-
-$("refresh-data").addEventListener("click",loadData);
-
-/* PSEUDO-3D CONVETTIVO
-   Volumi sfumati, gradienti e ombreggiature.
-   Non richiede librerie aggiuntive.
-*/
-function drawSchematic(dbz,track){
- const canvas=$("cell-canvas");
- const rect=canvas.getBoundingClientRect();
- const dpr=Math.min(window.devicePixelRatio||1,2);
- const width=Math.max(280,rect.width||320);
- const height=Math.max(200,rect.height||225);
-
- canvas.width=Math.round(width*dpr);
- canvas.height=Math.round(height*dpr);
-
- const ctx=canvas.getContext("2d");
- ctx.setTransform(dpr,0,0,dpr,0,0);
- ctx.clearRect(0,0,width,height);
-
- const cx=width*.5;
- const ground=height*.80;
- const intensity=dbz===null?.45:
-  Math.max(.2,Math.min(1,(dbz-20)/40));
- const baseColor=cellColor(dbz);
-
- function ellipseGlow(x,y,rx,ry,color,alpha,blur=0){
-  ctx.save();
-  ctx.globalAlpha=alpha;
-  ctx.filter=blur?"blur("+blur+"px)":"none";
-  ctx.fillStyle=color;
-  ctx.beginPath();
-  ctx.ellipse(x,y,Math.max(1,rx),Math.max(1,ry),0,0,Math.PI*2);
-  ctx.fill();
-  ctx.restore();
- }
-
- function organicVolume(x,y,rx,ry,color,alpha,seed){
-  ctx.save();
-  ctx.globalAlpha=alpha;
-  ctx.beginPath();
-  const steps=64;
-  for(let i=0;i<=steps;i++){
-   const a=i/steps*Math.PI*2;
-   const irregularity=
-    1+.075*Math.sin(a*3+seed)+
-    .045*Math.cos(a*5+seed*.7)+
-    .025*Math.sin(a*9+seed*1.4);
-   const px=x+Math.cos(a)*rx*irregularity;
-   const py=y+Math.sin(a)*ry*irregularity;
-   if(i===0)ctx.moveTo(px,py);
-   else ctx.lineTo(px,py);
-  }
-  ctx.closePath();
-
-  const gradient=ctx.createRadialGradient(
-   x-rx*.24,y-ry*.45,2,x,y,Math.max(rx,ry)*1.2
-  );
-  gradient.addColorStop(0,"rgba(255,255,255,.85)");
-  gradient.addColorStop(.18,color);
-  gradient.addColorStop(.60,color);
-  gradient.addColorStop(1,"rgba(4,16,32,.08)");
-  ctx.fillStyle=gradient;
-  ctx.fill();
-
-  ctx.strokeStyle=color;
-  ctx.globalAlpha=alpha*.65;
-  ctx.lineWidth=1;
-  ctx.stroke();
-  ctx.restore();
- }
-
- // Fondo atmosferico.
- const bg=ctx.createLinearGradient(0,0,0,height);
- bg.addColorStop(0,"#06111f");
- bg.addColorStop(.50,"#102d45");
- bg.addColorStop(1,"#071522");
- ctx.fillStyle=bg;
- ctx.fillRect(0,0,width,height);
-
- // Alone diffuso intorno alla nube.
- const halo=ctx.createRadialGradient(
-  cx,height*.47,3,cx,height*.47,width*.48
- );
- halo.addColorStop(0,"rgba(70,165,218,.22)");
- halo.addColorStop(.5,"rgba(33,104,158,.11)");
- halo.addColorStop(1,"rgba(8,25,44,0)");
- ctx.fillStyle=halo;
- ctx.fillRect(0,0,width,height);
-
- // Griglia prospettica molto tenue.
- ctx.save();
- ctx.strokeStyle="rgba(115,183,216,.13)";
- ctx.lineWidth=1;
- for(let i=0;i<7;i++){
-  const y=ground+6+i*5;
-  ctx.beginPath();
-  ctx.moveTo(width*.12,y);
-  ctx.lineTo(width*.88,y);
-  ctx.stroke();
- }
- for(let i=-4;i<=4;i++){
-  ctx.beginPath();
-  ctx.moveTo(cx+i*width*.065,ground-5);
-  ctx.lineTo(cx+i*width*.085,ground+35);
-  ctx.stroke();
- }
- ctx.restore();
-
- // Ombra atmosferica sotto il temporale.
- ellipseGlow(cx,ground,width*.29,17,"#020812",.68,9);
- ellipseGlow(cx,ground-2,width*.24,11,baseColor,.17,7);
-
- // Incudine superiore: volume largo, non geometrico.
- organicVolume(
-  cx-width*.015,height*.34,
-  width*(.24+.025*intensity),height*.095,
-  "#a9d9ef",.23,2
- );
- organicVolume(
-  cx+width*.025,height*.31,
-  width*.19,height*.07,
-  "#d2eaf6",.18,5
- );
-
- // Corpo della nube: lobature sovrapposte e trasparenti.
- organicVolume(
-  cx,height*.47,
-  width*(.20+.025*intensity),height*.22,
-  "#518ab1",.23,1
- );
- organicVolume(
-  cx-width*.09,height*.49,
-  width*.105,height*.12,
-  "#83b5d4",.36,3
- );
- organicVolume(
-  cx+width*.10,height*.48,
-  width*.11,height*.14,
-  "#78afd0",.32,6
- );
- organicVolume(
-  cx-width*.035,height*.43,
-  width*.12,height*.17,
-  "#b7d8e9",.30,8
- );
-
- // Nucleo convettivo centrale: intensità cromatica derivata dal dBZ.
- organicVolume(
-  cx+width*.015,height*.53,
-  width*(.085+.035*intensity),height*.16,
-  baseColor,.48+.18*intensity,4
- );
- organicVolume(
-  cx-width*.015,height*.57,
-  width*(.058+.025*intensity),height*.105,
-  baseColor,.60,7
- );
-
- // Veli inferiori e precipitazione stilizzata.
- organicVolume(
-  cx,height*.65,
-  width*.16,height*.085,
-  "#6b9fbd",.22,9
- );
-
- // Colonna centrale sfumata: suggerisce profondità verticale.
- const column=ctx.createLinearGradient(
-  cx, height*.39, cx, ground
- );
- column.addColorStop(0,"rgba(105,176,216,0)");
- column.addColorStop(.24,baseColor);
- column.addColorStop(.65,"rgba(68,142,190,.35)");
- column.addColorStop(1,"rgba(47,99,145,0)");
- ctx.save();
- ctx.globalAlpha=.20+.16*intensity;
- ctx.fillStyle=column;
- ctx.beginPath();
- ctx.moveTo(cx-width*.075,height*.43);
- ctx.bezierCurveTo(
-  cx-width*.12,height*.57,
-  cx-width*.07,height*.69,
-  cx-width*.10,ground-7
- );
- ctx.quadraticCurveTo(cx,ground+2,cx+width*.09,ground-7);
- ctx.bezierCurveTo(
-  cx+width*.06,height*.68,
-  cx+width*.12,height*.55,
-  cx+width*.07,height*.43
- );
- ctx.closePath();
- ctx.fill();
- ctx.restore();
-
- // Contorni morbidi di profondità.
- ctx.save();
- ctx.strokeStyle="rgba(197,231,248,.38)";
- ctx.lineWidth=1.1;
- ctx.beginPath();
- ctx.moveTo(cx-width*.21,height*.43);
- ctx.bezierCurveTo(
-  cx-width*.17,height*.31,
-  cx-width*.06,height*.27,
-  cx+width*.015,height*.32
- );
- ctx.bezierCurveTo(
-  cx+width*.12,height*.25,
-  cx+width*.23,height*.35,
-  cx+width*.21,height*.43
- );
- ctx.stroke();
- ctx.restore();
-
- // Base prospettica semitrasparente.
- ctx.save();
- ctx.fillStyle="rgba(24,88,129,.23)";
- ctx.strokeStyle="rgba(0,207,255,.55)";
- ctx.lineWidth=1;
- ctx.beginPath();
- ctx.ellipse(cx,ground,width*.28,15,0,0,Math.PI*2);
- ctx.fill();
- ctx.stroke();
- ctx.restore();
-
- // Etichette.
- ctx.save();
- ctx.fillStyle="#eaf5ff";
- ctx.font="bold 11px Arial";
- ctx.textAlign="center";
- ctx.fillText("VOLUME CONVETTIVO SCHEMATICO",cx,16);
-
- ctx.font="10px Arial";
- ctx.fillStyle="#b7d4e6";
- ctx.fillText(
-  dbz===null?"Riflettività: n/d":"Riflettività: "+dbz+" dBZ",
-  cx,height-10
- );
-
- ctx.textAlign="left";
- ctx.fillStyle="#a9c5d8";
- ctx.fillText("Quota non in scala",10,height-10);
- ctx.restore();
-}
-
-let resizeFrame=0;
-window.addEventListener("resize",()=>{
- cancelAnimationFrame(resizeFrame);
- resizeFrame=requestAnimationFrame(()=>{
-  if(selectedTrack)drawSchematic(cellDbz(selectedTrack),selectedTrack);
-  map.invalidateSize();
- });
-});
-
-document.addEventListener("visibilitychange",()=>{
- if(!document.hidden)map.invalidateSize();
-});
-
-loadData();
-setInterval(()=>{
- if(!document.hidden)loadData();
-},REFRESH_MS);
-</script>
+
+    <div class="mats-header">
+        <div class="mats-title">MATS</div>
+        <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
+    </div>
+
+    <div class="region-nav" id="region-nav-container">
+        <button class="region-btn active" onclick="filterRegion('Nazionale', this)">Nazionale</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="map-banner">
+        <span>Strutture 3D: <b id="total-count" style="color:#00bfff;">0</b></span>
+        <span>Aggiornato: <b id="last-update">-</b></span>
+    </div>
+
+    <!-- Modale Viewer 3D -->
+    <div id="viewer-3d-modal">
+        <div class="modal-info-bar">
+            <div>
+                <b id="modal-cell-id" style="font-size: 15px; color: #00bfff;">Core 3D</b>
+                <div class="meteo-grid-info" id="modal-cell-details"></div>
+            </div>
+            <button class="close-btn" onclick="close3DViewer()">CHIUDI [X]</button>
+        </div>
+        
+        <div id="canvas-3d-container">
+            <canvas id="viewer-canvas"></canvas>
+            <button class="holo-toggle-btn" id="holo-btn" onclick="toggleHologramMode()">ATTIVA WIREFRAME 3D</button>
+        </div>
+        <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const regionsList = [
+            "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", 
+            "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", 
+            "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", 
+            "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"
+        ];
+
+        const regionCoords = {
+            "Abruzzo": [42.35, 13.4], "Basilicata": [40.64, 16.55], "Calabria": [39.3, 16.5],
+            "Campania": [40.85, 14.26], "Emilia-Romagna": [44.49, 11.34], "Friuli-Venezia Giulia": [46.06, 13.23],
+            "Lazio": [41.9, 12.5], "Liguria": [44.4, 8.93], "Lombardia": [45.46, 9.19],
+            "Marche": [43.61, 13.51], "Molise": [41.56, 14.66], "Piemonte": [45.07, 7.68],
+            "Puglia": [41.12, 16.86], "Sardegna": [40.12, 9.01], "Sicilia": [37.59, 14.01],
+            "Toscana": [43.76, 11.25], "Trentino-Alto Adige": [46.49, 11.35], "Umbria": [43.11, 12.38],
+            "Valle d'Aosta": [45.73, 7.31], "Veneto": [45.44, 12.31]
+        };
+
+        let currentActiveRegion = 'Nazionale';
+        const navContainer = document.getElementById('region-nav-container');
+        regionsList.forEach(reg => {
+            let btn = document.createElement('button');
+            btn.className = 'region-btn';
+            btn.innerText = reg;
+            btn.onclick = (e) => filterRegion(reg, e.target);
+            navContainer.appendChild(btn);
+        });
+
+        function filterRegion(regName, btnElement) {
+            currentActiveRegion = regName;
+            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
+
+            if (regName === 'Nazionale') {
+                map.setView([42.5, 12.5], 6);
+            } else if (regionCoords[regName]) {
+                map.setView(regionCoords[regName], 8);
+            }
+            if (window.lastLoadedData) renderRegionalData(window.lastLoadedData);
+        }
+
+        var map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+
+        let radarLayer = L.layerGroup().addTo(map);
+        let vectorsLayer = L.layerGroup().addTo(map);
+
+        // Mappatura Rigorosa Colori della Riflettività dBZ
+        function getColor(val) {
+            if (val >= 14) return '#ff00ff'; // Magenta (Grandine / Core Estremo)
+            if (val > 10) return '#ff0000';  // Rosso (Severo)
+            if (val > 8)  return '#ff7700';  // Arancione (Intenso)
+            if (val > 6)  return '#ffcc00';  // Giallo (Moderato)
+            if (val > 3)  return '#00cc00';  // Verde (Pioggia)
+            return '#00bfff';                // Ciano (Debole)
+        }
+
+        function getHoloColor(hex, alpha) {
+            if (hex === '#ff00ff') return `rgba(255, 0, 255, ${alpha})`;
+            if (hex === '#ff0000') return `rgba(255, 0, 0, ${alpha})`;
+            if (hex === '#ff7700') return `rgba(255, 119, 0, ${alpha})`;
+            if (hex === '#ffcc00') return `rgba(255, 204, 0, ${alpha})`;
+            if (hex === '#00cc00') return `rgba(0, 204, 0, ${alpha})`;
+            return `rgba(0, 191, 255, ${alpha})`;
+        }
+
+        // Estrae il colore della massima riflettività presente nella matrice della cella
+        function getMaxCoreColor(track) {
+            let maxVal = 0;
+            let matrix = track.grid_matrix || [];
+            matrix.forEach(row => {
+                row.forEach(val => { if (val > maxVal) maxVal = val; });
+            });
+            return getColor(maxVal);
+        }
+
+        async function loadMasterData() {
+            try {
+                let res = await fetch('centroids.json?t=' + Date.now());
+                if (!res.ok) throw new Error("Errore dati");
+                let data = await res.json();
+                window.lastLoadedData = data;
+                renderRegionalData(data);
+            } catch (err) {
+                console.log("In attesa dati...", err);
+            }
+        }
+
+        function getOffsetLatLng(lat, lon, bearing, distanceKm) {
+            const R = 6371;
+            const rad = Math.PI / 180;
+            const d = distanceKm / R;
+            const brng = bearing * rad;
+            const lat1 = lat * rad;
+            const lon1 = lon * rad;
+
+            const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+            const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+
+            return [lat2 / rad, lon2 / rad];
+        }
+
+        function renderRegionalData(data) {
+            radarLayer.clearLayers();
+            vectorsLayer.clearLayers();
+
+            if (data.radar_tile && data.radar_tile.host && data.radar_tile.path) {
+                let radarUrl = data.radar_tile.host + data.radar_tile.path + '/256/{z}/{x}/{y}/2/1_1.png';
+                let rLayer = L.tileLayer(radarUrl, { opacity: 0.65, zIndex: 200 });
+                radarLayer.addLayer(rLayer);
+            }
+
+            let structures = data.macro_structures || data.structures || [];
+            document.getElementById('total-count').innerText = structures.length;
+            document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
+
+            structures.forEach(track => {
+                let center = track.center;
+                if (!center || center.length < 2) return;
+
+                if (currentActiveRegion !== 'Nazionale') {
+                    let coords = regionCoords[currentActiveRegion];
+                    if (coords) {
+                        let dist = Math.abs(center[0] - coords[0]) + Math.abs(center[1] - coords[1]);
+                        if (dist > 2.2) return;
+                    }
+                }
+
+                // COLORE RIGOROSO IN BASE ALLA RIFLETTIVITÀ MASSIMA DEL CORE
+                let coreHexColor = getMaxCoreColor(track);
+                let coreRgbaFill = getHoloColor(coreHexColor, 0.22);
+
+                // 1. Vettore reale percorso
+                if (track.actual_path && track.actual_path.length > 0) {
+                    let fullPath = [center, ...track.actual_path];
+                    L.polyline(fullPath, { color: coreHexColor, weight: 4, opacity: 0.85 }).addTo(vectorsLayer);
+                }
+
+                // 2. Cono predittivo NOAA a 6 ore con COLORE RIGOROSO DEL CORE
+                let speedKmh = track.speed_kmh || 40;
+                let dirDeg = track.direction_deg || 45;
+                let lat0 = center[0], lon0 = center[1];
+
+                let predPoints = [[lat0, lon0]];
+                let coneLeft = [], coneRight = [];
+
+                for (let h = 1; h <= 6; h++) {
+                    let dist = (speedKmh * h);
+                    let pos = getOffsetLatLng(lat0, lon0, dirDeg, dist);
+                    predPoints.push(pos);
+
+                    let coneRadius = 5 + (h * 6);
+                    let leftP = getOffsetLatLng(pos[0], pos[1], dirDeg - 90, coneRadius);
+                    let rightP = getOffsetLatLng(pos[0], pos[1], dirDeg + 90, coneRadius);
+
+                    coneLeft.push(leftP);
+                    coneRight.unshift(rightP);
+
+                    if (h === 1 || h === 3 || h === 6) {
+                        L.circleMarker(pos, { radius: 4, color: coreHexColor, fillColor: coreHexColor, fillOpacity: 0.9 }).addTo(vectorsLayer)
+                            .bindTooltip(`+${h}h (${Math.round(dist)}km)`, { permanent: false, direction: 'top' });
+                    }
+                }
+
+                // Poligono Cono NOAA con il colore del nucleo (es. Magenta per celle severe)
+                let conePolygon = [ [lat0, lon0], ...coneLeft, ...coneRight ];
+                L.polygon(conePolygon, {
+                    color: coreHexColor,
+                    weight: 2,
+                    dashArray: '4, 4',
+                    fillColor: coreHexColor,
+                    fillOpacity: 0.22
+                }).addTo(vectorsLayer);
+
+                L.polyline(predPoints, { color: coreHexColor, weight: 2, dashArray: '6, 6' }).addTo(vectorsLayer);
+
+                // Centroide Marker con lo stesso colore del cono/core
+                let customIconHtml = `<div class="centroid-pulse" style="background:${coreHexColor}; box-shadow:0 0 12px ${coreHexColor};"></div>`;
+                let centroidIcon = L.divIcon({
+                    className: 'custom-centroid-node',
+                    html: customIconHtml,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                let marker = L.marker([center[0], center[1]], { icon: centroidIcon }).addTo(vectorsLayer);
+                marker.on('click', () => open3DViewer(track));
+            });
+        }
+             var currentTrack = null;
+        var rotX = 0.5, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+        var isWireframeMode = false;
+        var wireframeAnimId = null;
+        var scanAngle = 0;
+
+        function open3DViewer(track) {
+            currentTrack = track;
+            rotY = 0.0; rotX = 0.5; isWireframeMode = false;
+            document.getElementById('holo-btn').innerText = "ATTIVA WIREFRAME 3D";
+            
+            let dbzVal = track.dbz || (42 + Math.round((track.vil || 30) % 18));
+            let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
+            let echoTopMed = track.echo_top || Math.min(13.8, Math.round((8.5 + (dbzVal / 10.0)) * 10) / 10);
+            let hailRisk = dbzVal >= 52 ? "MOLTO ELEVATO (>85%)" : (dbzVal >= 46 ? "ELEVATO (60-80%)" : (dbzVal >= 40 ? "MODERATO (30-50%)" : "BASSO (<15%)"));
+            let hailColor = dbzVal >= 52 ? '#ff00ff' : (dbzVal >= 46 ? '#ff0000' : '#ffcc00');
+            let lightningActivity = dbzVal >= 50 ? "EXTREME (>50 sf/min)" : (dbzVal >= 44 ? "ATTIVA (20-40 sf/min)" : "DEBOLE/ISOLATA");
+
+            document.getElementById('modal-cell-id').innerText = `${track.id} | ${dbzVal} dBZ`;
+            document.getElementById('modal-cell-details').innerHTML = `
+                <div><b>Riflettività Max:</b> <span style="color:${getMaxCoreColor(track)}; font-weight:bold;">${dbzVal} dBZ</span></div>
+                <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
+                <div><b>VIL Core:</b> ${track.vil || 45} kg/m²</div>
+                <div><b>Echo Top (Med):</b> <span style="color:#ffcc00;">${echoTopMed} km</span></div>
+                <div><b>Rischio Grandine:</b> <span style="color:${hailColor}; font-weight:bold;">${hailRisk}</span></div>
+                <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
+                <div><b>Vel. Traslazione:</b> ${track.speed_kmh || 45} km/h</div>
+                <div><b>ETA Cono +6h:</b> Target Costiero</div>
+            `;
+
+            document.getElementById('viewer-3d-modal').style.display = 'flex';
+            render3D();
+        }
+
+        function close3DViewer() {
+            document.getElementById('viewer-3d-modal').style.display = 'none';
+            if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+            currentTrack = null; isWireframeMode = false;
+        }
+
+        function toggleHologramMode() {
+            isWireframeMode = !isWireframeMode;
+            document.getElementById('holo-btn').innerText = isWireframeMode ? "DISATTIVA WIREFRAME 3D" : "ATTIVA WIREFRAME 3D";
+            if (isWireframeMode) {
+                runWireframeLoop();
+            } else {
+                if (wireframeAnimId) cancelAnimationFrame(wireframeAnimId);
+                render3D();
+            }
+        }
+
+        var canvas = document.getElementById('viewer-canvas');
+        var ctx = canvas.getContext('2d');
+        var container = document.getElementById('canvas-3d-container');
+
+        container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        container.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; }
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            rotY += (e.clientX - lastMouseX) * 0.01;
+            rotX += (e.clientY - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+            if (!isWireframeMode) render3D();
+        });
+
+        window.addEventListener('touchmove', e => {
+            if (!isDragging || e.touches.length !== 1) return;
+            let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+            rotY += (cx - lastMouseX) * 0.01;
+            rotX += (cy - lastMouseY) * 0.006;
+            rotX = Math.max(0.2, Math.min(1.2, rotX));
+            lastMouseX = cx; lastMouseY = cy;
+            if (!isWireframeMode) render3D();
+        }, { passive: true });
+
+        function render3D() {
+            if (!currentTrack) return;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = col.color;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function runWireframeLoop() {
+            if (!isWireframeMode) return;
+            scanAngle += 0.03;
+            rotY += 0.008;
+
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let matrix = currentTrack.grid_matrix || [];
+            let rows = matrix.length;
+            let cols = rows > 0 ? matrix[0].length : 0;
+            let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
+            let scale = Math.min(canvas.width, canvas.height) / 22;
+            let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            let columnsToDraw = [];
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let val = matrix[r][c];
+                    if (val <= 0) continue;
+
+                    let x = (c - cols / 2 + 0.5) * 1.0;
+                    let y = (r - rows / 2 + 0.5) * 1.0;
+                    let px_base = cx + (x * cosY - y * sinY) * scale;
+                    let py_base = cy + (x * sinY + y * cosY) * sinX * scale;
+                    let depth = (x * sinY + y * cosY) * cosX;
+                    let h_px = val * scale * 0.75;
+
+                    columnsToDraw.push({
+                        color: getColor(val), depth: depth,
+                        px_base: px_base, py_base: py_base,
+                        px_top: px_base, py_top: py_base - h_px, h_px: h_px
+                    });
+                }
+            }
+
+            columnsToDraw.sort((a, b) => a.depth - b.depth);
+            let barW = scale * 0.85;
+
+            columnsToDraw.forEach(col => {
+                ctx.fillStyle = getHoloColor(col.color, 0.12);
+                ctx.strokeStyle = getHoloColor(col.color, 0.95);
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            let scanY = cy - 80 + Math.sin(scanAngle * 2) * 90;
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00ffcc';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(cx - 100, scanY);
+            ctx.lineTo(cx + 100, scanY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            wireframeAnimId = requestAnimationFrame(runWireframeLoop);
+        }
+
+        loadMasterData();
+        setInterval(loadMasterData, 180000);
+    </script>
 </body>
 </html>
