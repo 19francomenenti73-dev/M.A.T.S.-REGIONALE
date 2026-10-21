@@ -409,14 +409,14 @@
   </script>
     <script>
     let currentTrack = null;
-    let rotX = -0.3, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+    let rotX = -0.35, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
     let wireframeAnimId = null;
     let scanAngle = 0;
 
     function open3DViewer(track) {
       currentTrack = track;
-      rotX = -0.3; rotY = 0.5;
+      rotX = -0.35; rotY = 0.5; // Angolazione fissa iniziale vista dall'alto
       let modal = document.getElementById('viewer-3d-modal');
       modal.style.display = 'flex';
 
@@ -424,16 +424,16 @@
 
       let dbzVal = track.dbz || 45;
       let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
-      let echoTopVal = track.echo_top || 11.5;
+      let echoTopVal = track.echo_top || 11.7;
       let hailRisk = dbzVal >= 52 ? "MOLTO ELEVATO (>85%)" : (dbzVal >= 46 ? "ELEVATO (>60%)" : "MODERATO");
       let hailColor = dbzVal >= 52 ? "#ff00ff" : (dbzVal >= 46 ? "#ff000d" : "#ffcc00");
       let lightningActivity = dbzVal >= 50 ? "ESTREMA (>50 sf/min)" : "INTENSA";
 
-      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-3D'} | ${dbzVal} dBZ`;
+      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-12'} | ${dbzVal} dBZ`;
       document.getElementById('modal-cell-details').innerHTML = `
         <div><b>Riflettività Max:</b> <span style="color:${getColor(dbzVal)};">${dbzVal} dBZ</span></div>
         <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
-        <div><b>VIL Core:</b> ${track.vil || 55} kg/m²</div>
+        <div><b>VIL Core:</b> ${track.vil || 67.2} kg/m²</div>
         <div><b>Echo Top (Wd):</b> ${echoTopVal} km</div>
         <div><b>Rischio Grandine:</b> <span style="color:${hailColor};">${hailRisk}</span></div>
         <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
@@ -473,20 +473,19 @@
     window.addEventListener('mouseup', () => { isDragging = false; });
     window.addEventListener('touchend', () => { isDragging = false; });
 
+    // ROTAZIONE SOLO ORIZZONTALE SUL PIANO (Bloccata rotazione verticale per evitare capovolgimento)
     window.addEventListener('mousemove', e => {
       if (!isDragging) return;
       rotY += (e.clientX - lastMouseX) * 0.01;
-      rotX += (e.clientY - lastMouseY) * 0.01;
       lastMouseX = e.clientX; lastMouseY = e.clientY;
       if (active3DViewMode !== 'holo') renderCurrentMode();
     });
 
     window.addEventListener('touchmove', e => {
       if (!isDragging || e.touches.length !== 1) return;
-      let cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+      let cx = e.touches[0].clientX;
       rotY += (cx - lastMouseX) * 0.01;
-      rotX += (cy - lastMouseY) * 0.01;
-      lastMouseX = cx; lastMouseY = cy;
+      lastMouseX = cx; lastMouseY = e.touches[0].clientY;
       if (active3DViewMode !== 'holo') renderCurrentMode();
     }, { passive: true });
 
@@ -509,7 +508,7 @@
       } else if (active3DViewMode === 'volumetric') {
         renderVolumetricMode();
       } else if (active3DViewMode === 'isosuperfici') {
-        renderInvertedWireframeMode();
+        renderPseudo3DMode();
       }
     }
 
@@ -523,15 +522,15 @@
       ];
     }
 
-    // 1. VOXEL 3D: Colonne piene e solide
+    // 1. VOXEL 3D: Colonne piene e solide, ancorate al centro, vista parziale dall'alto, rotazione orizzontale
     function renderVoxelMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
       let scale = Math.min(canvas.width, canvas.height) / 22;
 
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
       let items = [];
       for (let r = 0; r < rows; r++) {
@@ -573,11 +572,11 @@
       });
     }
 
-    // 2. HOLO WIREFRAME: Scheletro trasparente con linea di scansione
+    // 2. HOLO WIREFRAME: Scheletro a parallelepipedi trasparenti con linea di scansione ciano
     function runWireframeLoop() {
       if (active3DViewMode !== 'holo') return;
       scanAngle += 0.04;
-      rotY += 0.005;
+      rotY += 0.005; // Auto-rotazione lenta orizzontale
 
       updateCanvasSize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -585,11 +584,11 @@
 
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
       let scale = Math.min(canvas.width, canvas.height) / 22;
 
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
       let items = [];
       for (let r = 0; r < rows; r++) {
@@ -630,6 +629,7 @@
         ctx.stroke();
       });
 
+      // Linea di scansione orizzontale laser ciano
       let scanY = cy - 80 + Math.sin(scanAngle) * 90;
       ctx.strokeStyle = '#00ffcc';
       ctx.lineWidth = 2.5;
@@ -644,17 +644,17 @@
       wireframeAnimId = requestAnimationFrame(runWireframeLoop);
     }
 
-    // 3. NUBE VOLUMETRICA: Struttura a griglia volumetrica semitrasparente a blocchi/fette sovrapposte
+    // 3. NUBE VOLUMETRICA: Griglia densa di blocchi stratificati su più livelli (Esattamente come Foto 2 / 44638_7.png)
     function renderVolumetricMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
       let scale = Math.min(canvas.width, canvas.height) / 22;
 
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      let items = [];
+      let volumetricBlocks = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -668,42 +668,74 @@
           let px = cx + rx;
           let py = cy + ry * sinX;
           let depth = ry * cosX;
-          let height = val * scale * 0.6;
+          let totalH = val * scale * 0.6;
+          let w = scale * 0.9;
 
-          items.push({
-            color: getColor(val),
-            depth: depth,
-            px: px,
-            py: py,
-            h: height,
-            w: scale * 0.9
-          });
+          // Genera la griglia tridimensionale a blocchi volumetrici sovrapposti
+          let numLayers = Math.max(6, Math.floor(val * 0.8));
+          let blockH = totalH / numLayers;
+
+          for (let l = 0; l < numLayers; l++) {
+            let currentTop = py - (blockH * (l + 1));
+            volumetricBlocks.push({
+              color: getColor(val),
+              depth: depth - (l * 0.02),
+              px: px,
+              py: currentTop,
+              h: blockH,
+              w: w
+            });
+          }
         }
       }
 
-      items.sort((a, b) => a.depth - b.depth);
+      volumetricBlocks.sort((a, b) => a.depth - b.depth);
 
-      items.forEach(item => {
-        // Renderizza strati volumetrici sovrapposti con trasparenza (effetto nuvola / box volumetrico)
-        ctx.strokeStyle = item.color;
-        ctx.fillStyle = getHoleColor(item.color, 0.22);
+      ctx.globalCompositeOperation = 'screen';
+      volumetricBlocks.forEach(b => {
+        ctx.strokeStyle = b.color;
+        ctx.fillStyle = getHoleColor(b.color, 0.35);
         ctx.lineWidth = 1.0;
         ctx.beginPath();
-        ctx.rect(item.px - item.w / 2, item.py - item.h, item.w, item.h);
+        ctx.rect(b.px - b.w / 2, b.py, b.w, b.h);
         ctx.fill();
         ctx.stroke();
       });
+      ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO / WIREFRAME INVERTITO: Cubi pieni e solidi sui nuclei ad alta riflettività, wireframe trasparente sul resto
-    function renderInvertedWireframeMode() {
+    // 4. FOTOREALISTICO (PSEUDO 3D STRATIFICATO):
+    // - Piano di terra: blocchetti stretti celesti trasparenti ancorati in basso.
+    // - Nuclei Rossi/Magenta/Gialli: toccano il terreno e salgono in verticale.
+    // - Bassa riflettività (Blu/Verde): sospesa in alto, più ampia, a cubi trasparenti.
+    function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 60;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
       let scale = Math.min(canvas.width, canvas.height) / 22;
 
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
+
+      // Renderizza il Piano di Riscontro (Terreno) con blocchetti stretti celesti trasparenti
+      ctx.strokeStyle = 'rgba(0, 191, 255, 0.25)';
+      ctx.fillStyle = 'rgba(0, 191, 255, 0.05)';
+      ctx.lineWidth = 0.8;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let x = (c - cols / 2) * scale;
+          let y = (r - rows / 2) * scale;
+          let rx = x * cosY - y * sinY;
+          let ry = x * sinY + y * cosY;
+          let px = cx + rx;
+          let py = cy + ry * sinX;
+          let w = scale * 0.9;
+          ctx.beginPath();
+          ctx.rect(px - w / 2, py - 3, w, 6);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
 
       let items = [];
       for (let r = 0; r < rows; r++) {
@@ -719,41 +751,58 @@
           let px = cx + rx;
           let py = cy + ry * sinX;
           let depth = ry * cosX;
-          let height = val * scale * 0.6;
+          let w = scale * 0.95;
 
-          items.push({
-            color: getColor(val),
-            val: val,
-            depth: depth,
-            px: px,
-            py: py,
-            h: height,
-            w: scale * 0.9
-          });
+          if (val >= 8) {
+            // Nuclei intesivi (Giallo, Rosso, Magenta): scendono a toccare il terreno
+            let height = val * scale * 0.7;
+            items.push({
+              color: getColor(val),
+              val: val,
+              depth: depth,
+              px: px,
+              py_base: py,
+              h: height,
+              w: w,
+              type: 'core_solid'
+            });
+          } else {
+            // Bassa riflettività (Azzurro, Verde): sospesa in alto, non tocca il terreno
+            let height = val * scale * 0.4;
+            let elevationShift = 60 + (val * 4); // Sospensione verticale
+            items.push({
+              color: getColor(val),
+              val: val,
+              depth: depth,
+              px: px,
+              py_base: py - elevationShift,
+              h: height,
+              w: w,
+              type: 'anvil_transparent'
+            });
+          }
         }
       }
 
       items.sort((a, b) => a.depth - b.depth);
 
       items.forEach(item => {
-        let isHighCore = item.val >= 8; // Giallo, Rosso, Magenta
-
-        if (isHighCore) {
-          // Solido pieno per i nuclei intensi
+        if (item.type === 'core_solid') {
+          // Solido pieno per i nuclei intensi che toccano terra
           ctx.fillStyle = item.color;
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py - item.h, item.w, item.h);
+          ctx.rect(item.px - item.w / 2, item.py_base - item.h, item.w, item.h);
           ctx.fill();
           ctx.stroke();
         } else {
-          // Wireframe trasparente per le zone a bassa riflettività
+          // Cubi trasparenti sospesi in alto per le basse riflettività
           ctx.strokeStyle = item.color;
-          ctx.fillStyle = getHoleColor(item.color, 0.1);
+          ctx.fillStyle = getHoleColor(item.color, 0.22);
           ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py - item.h, item.w, item.h);
+          ctx.rect(item.px - item.w / 2, item.py_base - item.h, item.w, item.h);
           ctx.fill();
           ctx.stroke();
         }
