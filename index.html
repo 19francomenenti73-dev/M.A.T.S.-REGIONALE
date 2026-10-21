@@ -406,8 +406,8 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-  </script>
-    <script>
+      </script>
+        <script>
     let currentTrack = null;
     let rotX = -0.35, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
@@ -416,7 +416,7 @@
 
     function open3DViewer(track) {
       currentTrack = track;
-      rotX = -0.35; rotY = 0.5; // Angolazione fissa iniziale vista dall'alto
+      rotX = -0.35; rotY = 0.5;
       let modal = document.getElementById('viewer-3d-modal');
       modal.style.display = 'flex';
 
@@ -429,7 +429,7 @@
       let hailColor = dbzVal >= 52 ? "#ff00ff" : (dbzVal >= 46 ? "#ff000d" : "#ffcc00");
       let lightningActivity = dbzVal >= 50 ? "ESTREMA (>50 sf/min)" : "INTENSA";
 
-      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-12'} | ${dbzVal} dBZ`;
+      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-9'} | ${dbzVal} dBZ`;
       document.getElementById('modal-cell-details').innerHTML = `
         <div><b>Riflettività Max:</b> <span style="color:${getColor(dbzVal)};">${dbzVal} dBZ</span></div>
         <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
@@ -576,7 +576,7 @@
     function runWireframeLoop() {
       if (active3DViewMode !== 'holo') return;
       scanAngle += 0.04;
-      rotY += 0.005; // Auto-rotazione lenta orizzontale
+      rotY += 0.005;
 
       updateCanvasSize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -629,7 +629,6 @@
         ctx.stroke();
       });
 
-      // Linea di scansione orizzontale laser ciano
       let scanY = cy - 80 + Math.sin(scanAngle) * 90;
       ctx.strokeStyle = '#00ffcc';
       ctx.lineWidth = 2.5;
@@ -644,7 +643,7 @@
       wireframeAnimId = requestAnimationFrame(runWireframeLoop);
     }
 
-    // 3. NUBE VOLUMETRICA: Griglia densa di blocchi stratificati su più livelli (Esattamente come Foto 2 / 44638_7.png)
+    // 3. NUBE VOLUMETRICA: Griglia densa di blocchi stratificati su più livelli
     function renderVolumetricMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -671,7 +670,6 @@
           let totalH = val * scale * 0.6;
           let w = scale * 0.9;
 
-          // Genera la griglia tridimensionale a blocchi volumetrici sovrapposti
           let numLayers = Math.max(6, Math.floor(val * 0.8));
           let blockH = totalH / numLayers;
 
@@ -704,10 +702,10 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (PSEUDO 3D STRATIFICATO):
-    // - Piano di terra: blocchetti stretti celesti trasparenti ancorati in basso.
-    // - Nuclei Rossi/Magenta/Gialli: toccano il terreno e salgono in verticale.
-    // - Bassa riflettività (Blu/Verde): sospesa in alto, più ampia, a cubi trasparenti.
+    // 4. FOTOREALISTICO (PSEUDO 3D con BASE RADAR SOLIDA 2D al suolo):
+    // - Terreno: mappa di riflettività 2D solida e colorata basata esattamente sulla matrice dati del Tracker.
+    // - Nuclei intensi (Giallo/Rosso/Magenta): colonne solide che partono dal terreno.
+    // - Bassa riflettività (Azzurro/Verde): volumi trasparenti sospesi in alto.
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -717,27 +715,47 @@
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      // Renderizza il Piano di Riscontro (Terreno) con blocchetti stretti celesti trasparenti
-      ctx.strokeStyle = 'rgba(0, 191, 255, 0.25)';
-      ctx.fillStyle = 'rgba(0, 191, 255, 0.05)';
-      ctx.lineWidth = 0.8;
+      // 1. RENDER BASE TERRENO: Mappa radar solida 2D che copia la riflettività della griglia
+      let groundItems = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
+          let val = matrix[r][c];
+          if (val <= 0) continue;
           let x = (c - cols / 2) * scale;
           let y = (r - rows / 2) * scale;
           let rx = x * cosY - y * sinY;
           let ry = x * sinY + y * cosY;
           let px = cx + rx;
           let py = cy + ry * sinX;
-          let w = scale * 0.9;
-          ctx.beginPath();
-          ctx.rect(px - w / 2, py - 3, w, 6);
-          ctx.fill();
-          ctx.stroke();
+          let depth = ry * cosX;
+          let w = scale * 0.95;
+
+          groundItems.push({
+            color: getColor(val),
+            depth: depth,
+            px: px,
+            py: py,
+            w: w
+          });
         }
       }
 
-      let items = [];
+      // Ordina la base per profondità
+      groundItems.sort((a, b) => a.depth - b.depth);
+
+      // Disegna la base solida colorata al suolo
+      groundItems.forEach(g => {
+        ctx.fillStyle = g.color;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.rect(g.px - g.w / 2, g.py - 3, g.w, 6);
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      // 2. RENDER STRUTTURA SUPERIORE 3D (Nuclei solidi in basso, strati trasparenti sospesi in alto)
+      let upperItems = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -754,41 +772,38 @@
           let w = scale * 0.95;
 
           if (val >= 8) {
-            // Nuclei intesivi (Giallo, Rosso, Magenta): scendono a toccare il terreno
+            // Nuclei intensi (Giallo, Rosso, Magenta): partono dal terreno e salgono solidi
             let height = val * scale * 0.7;
-            items.push({
+            upperItems.push({
               color: getColor(val),
-              val: val,
               depth: depth,
               px: px,
               py_base: py,
               h: height,
               w: w,
-              type: 'core_solid'
+              type: 'solid'
             });
           } else {
-            // Bassa riflettività (Azzurro, Verde): sospesa in alto, non tocca il terreno
-            let height = val * scale * 0.4;
-            let elevationShift = 60 + (val * 4); // Sospensione verticale
-            items.push({
+            // Basse riflettività (Azzurro, Verde): cubi trasparenti sospesi in quota
+            let height = val * scale * 0.45;
+            let elevationShift = 55 + (val * 3.5);
+            upperItems.push({
               color: getColor(val),
-              val: val,
               depth: depth,
               px: px,
               py_base: py - elevationShift,
               h: height,
               w: w,
-              type: 'anvil_transparent'
+              type: 'transparent'
             });
           }
         }
       }
 
-      items.sort((a, b) => a.depth - b.depth);
+      upperItems.sort((a, b) => a.depth - b.depth);
 
-      items.forEach(item => {
-        if (item.type === 'core_solid') {
-          // Solido pieno per i nuclei intensi che toccano terra
+      upperItems.forEach(item => {
+        if (item.type === 'solid') {
           ctx.fillStyle = item.color;
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 1;
@@ -797,9 +812,8 @@
           ctx.fill();
           ctx.stroke();
         } else {
-          // Cubi trasparenti sospesi in alto per le basse riflettività
           ctx.strokeStyle = item.color;
-          ctx.fillStyle = getHoleColor(item.color, 0.22);
+          ctx.fillStyle = getHoleColor(item.color, 0.25);
           ctx.lineWidth = 1.2;
           ctx.beginPath();
           ctx.rect(item.px - item.w / 2, item.py_base - item.h, item.w, item.h);
