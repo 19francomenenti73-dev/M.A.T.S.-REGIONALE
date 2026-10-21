@@ -702,7 +702,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (Base radar solida + Cilindri core solidi + Coni trasparenti in espansione)
+    // 4. FOTOREALISTICO (Base radar solida + Cilindri core solidi in basso + Coni trasparenti stretti alla base e larghi in quota)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -713,8 +713,6 @@
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
       let renderItems = [];
-      let centerC = cols / 2;
-      let centerR = rows / 2;
 
       // 1. TERRENO RADAR CONTINUO AL SUOLO
       for (let r = 0; r < rows; r++) {
@@ -736,7 +734,7 @@
         }
       }
 
-      // 2. STRUTTURA A CONI E CILINDRI
+      // 2. STRUTTURA A CONI E CILINDRI CORRETTAMENTE ORIENTATA
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -756,7 +754,7 @@
           let layerH = totalH / numLayers;
 
           for (let l = 0; l < numLayers; l++) {
-            let norm = l / (numLayers - 1); // 0 = terra, 1 = cima
+            let norm = l / (numLayers - 1); // 0 = terreno, 1 = cima dell'incudine
             let layerPy = basePy - (layerH * (l + 1));
             let layerDepth = depth - (l * 0.01);
 
@@ -774,8 +772,8 @@
                 color: getColor(val)
               });
             } else {
-              // Cono trasparente in espansione (più stretto a terra, largo in quota per verde e blu)
-              let expansionFactor = 0.55 + (norm * 0.75);
+              // Cono trasparente: STRETTO ALLA BASE (norm=0 -> factor basso) e LARGO IN QUOTA (norm=1 -> factor alto)
+              let expansionFactor = 0.55 + (norm * 0.75); 
               let conicallyShiftedX = cx + ((x * expansionFactor) * cosY - (y * expansionFactor) * sinY);
               let conicallyShiftedY = cy + ((x * expansionFactor) * sinY + (y * expansionFactor) * cosY) * sinX - (layerH * (l + 1));
 
