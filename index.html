@@ -702,7 +702,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (Base radar solida + Cilindri core solidi in basso + Coni trasparenti stretti alla base e larghi in quota)
+    // 4. FOTOREALISTICO (Risolto: Colonne verticali raggruppate per preservare l'asse verticale senza sdraiarsi)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -712,9 +712,8 @@
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      let renderItems = [];
-
-      // 1. TERRENO RADAR CONTINUO AL SUOLO
+      // 1. TERRENO RADAR AL SUOLO
+      let groundItems = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -723,8 +722,7 @@
           let y = (r - rows / 2) * scale;
           let rx = x * cosY - y * sinY;
           let ry = x * sinY + y * cosY;
-          renderItems.push({
-            type: 'ground',
+          groundItems.push({
             depth: ry * cosX - 0.5,
             px: cx + rx,
             py: cy + ry * sinX,
@@ -733,8 +731,19 @@
           });
         }
       }
+      groundItems.sort((a, b) => a.depth - b.depth);
+      groundItems.forEach(item => {
+        ctx.fillStyle = item.color;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.rect(item.px - item.w / 2, item.py - 3, item.w, 6);
+        ctx.fill();
+        ctx.stroke();
+      });
 
-      // 2. STRUTTURA A CONI E CILINDRI CORRETTAMENTE ORIENTATA
+      // 2. COLONNE VERTICALI (Unitcolonne ordinate per profondità complessiva)
+      let columns = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
@@ -753,73 +762,54 @@
           let numLayers = 10;
           let layerH = totalH / numLayers;
 
+          let layers = [];
           for (let l = 0; l < numLayers; l++) {
-            let norm = l / (numLayers - 1); // 0 = terreno, 1 = cima dell'incudine
-            let layerPy = basePy - (layerH * (l + 1));
-            let layerDepth = depth - (l * 0.01);
+            let norm = l / (numLayers - 1); // 0 = terra, 1 = cima
+            let layerPy = basePy - (layerH * (l + 1)); // Crescita rigorosamente verticale verso l'alto
+            let isCore = (val >= 8);
 
-            let isCore = (val >= 8); // Giallo, Rosso, Magenta
+            let widthFactor = 0.7 + (norm * 0.8); // Più stretto al suolo, largo in quota (incudine)
+            let blockW = scale * 0.9 * widthFactor;
 
-            if (isCore && norm <= 0.65) {
-              // Cilindri verticali solidi per i core (interrotti sotto l'incudine)
-              renderItems.push({
-                type: 'solid_core',
-                depth: layerDepth,
-                px: basePx,
-                py: layerPy,
-                h: layerH,
-                w: scale * 0.85,
-                color: getColor(val)
-              });
-            } else {
-              // Cono trasparente: STRETTO ALLA BASE (norm=0 -> factor basso) e LARGO IN QUOTA (norm=1 -> factor alto)
-              let expansionFactor = 0.55 + (norm * 0.75); 
-              let conicallyShiftedX = cx + ((x * expansionFactor) * cosY - (y * expansionFactor) * sinY);
-              let conicallyShiftedY = cy + ((x * expansionFactor) * sinY + (y * expansionFactor) * cosY) * sinX - (layerH * (l + 1));
-
-              renderItems.push({
-                type: 'transparent_cone',
-                depth: layerDepth,
-                px: conicallyShiftedX,
-                py: conicallyShiftedY,
-                w: scale * 0.9 * expansionFactor,
-                h: layerH,
-                color: getColor(val),
-                alpha: 0.2 + (norm * 0.25)
-              });
-            }
+            layers.push({
+              type: (isCore && norm <= 0.65) ? 'solid_core' : 'transparent_cone',
+              px: basePx,
+              py: layerPy,
+              w: blockW,
+              h: layerH,
+              color: getColor(val),
+              alpha: 0.2 + (norm * 0.25)
+            });
           }
+
+          columns.push({ depth: depth, layers: layers });
         }
       }
 
-      renderItems.sort((a, b) => a.depth - b.depth);
+      // Ordiniamo le colonne intere in base alla profondità (evita l'interleaver orizzontale)
+      columns.sort((a, b) => a.depth - b.depth);
 
-      renderItems.forEach(item => {
-        if (item.type === 'ground') {
-          ctx.fillStyle = item.color;
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py - 3, item.w, 6);
-          ctx.fill();
-          ctx.stroke();
-        } else if (item.type === 'solid_core') {
-          ctx.fillStyle = item.color;
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
-          ctx.fill();
-          ctx.stroke();
-        } else if (item.type === 'transparent_cone') {
-          ctx.strokeStyle = item.color;
-          ctx.fillStyle = getHoleColor(item.color, item.alpha);
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
-          ctx.fill();
-          ctx.stroke();
-        }
+      // Disegno delle colonne verticali intatte dal basso verso l'alto
+      columns.forEach(col => {
+        col.layers.forEach(item => {
+          if (item.type === 'solid_core') {
+            ctx.fillStyle = item.color;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.strokeStyle = item.color;
+            ctx.fillStyle = getHoleColor(item.color, item.alpha);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+            ctx.fill();
+            ctx.stroke();
+          }
+        });
       });
     }
 
