@@ -429,11 +429,11 @@
       let hailColor = dbzVal >= 52 ? "#ff00ff" : (dbzVal >= 46 ? "#ff000d" : "#ffcc00");
       let lightningActivity = dbzVal >= 50 ? "ESTREMA (>50 sf/min)" : "INTENSA";
 
-      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-9'} | ${dbzVal} dBZ`;
+      document.getElementById('modal-cell-id').innerText = `${track.id || 'Core-51711-8'} | ${dbzVal} dBZ`;
       document.getElementById('modal-cell-details').innerHTML = `
         <div><b>Riflettività Max:</b> <span style="color:${getColor(dbzVal)};">${dbzVal} dBZ</span></div>
         <div><b>Rain Rate Previsto:</b> <span style="color:#00bfff;">${rainRate} mm/h</span></div>
-        <div><b>VIL Core:</b> ${track.vil || 67.2} kg/m²</div>
+        <div><b>VIL Core:</b> ${track.vil || 63.6} kg/m²</div>
         <div><b>Echo Top (Wd):</b> ${echoTopVal} km</div>
         <div><b>Rischio Grandine:</b> <span style="color:${hailColor};">${hailRisk}</span></div>
         <div><b>Attività Fulmini:</b> ${lightningActivity}</div>
@@ -522,7 +522,7 @@
       ];
     }
 
-    // 1. VOXEL 3D: Colonne piene e solide, ancorate al centro, vista parziale dall'alto, rotazione orizzontale
+    // 1. VOXEL 3D: Colonne piene e solide, ancorate al centro
     function renderVoxelMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -572,7 +572,7 @@
       });
     }
 
-    // 2. HOLO WIREFRAME: Scheletro a parallelepipedi trasparenti con linea di scansione ciano
+    // 2. HOLO WIREFRAME: Scheletro a parallelepipedi trasparenti con scansione laser
     function runWireframeLoop() {
       if (active3DViewMode !== 'holo') return;
       scanAngle += 0.04;
@@ -643,7 +643,7 @@
       wireframeAnimId = requestAnimationFrame(runWireframeLoop);
     }
 
-    // 3. NUBE VOLUMETRICA: Griglia densa di blocchi stratificati su più livelli
+    // 3. NUBE VOLUMETRICA: Griglia densa di blocchi stratificati
     function renderVolumetricMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -702,10 +702,10 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (PSEUDO 3D con BASE RADAR SOLIDA 2D al suolo):
-    // - Terreno: mappa di riflettività 2D solida e colorata basata esattamente sulla matrice dati del Tracker.
-    // - Nuclei intensi (Giallo/Rosso/Magenta): colonne solide che partono dal terreno.
-    // - Bassa riflettività (Azzurro/Verde): volumi trasparenti sospesi in alto.
+    // 4. FOTOREALISTICO (PSEUDO 3D UNIFICATO):
+    // - Base terreno: Mappa radar solida 2D che copia esattamente i colori della matrice.
+    // - Colonne unificate: I nuclei intensi formano la base solida, mentre la copertura superiore (azzurro/verde) 
+    //   si sviluppa verticalmente sugli stessi assi esatti, senza alcuno slittamento laterale.
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -715,110 +715,87 @@
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      // 1. RENDER BASE TERRENO: Mappa radar solida 2D che copia la riflettività della griglia
-      let groundItems = [];
+      let renderItems = [];
+
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let val = matrix[r][c];
           if (val <= 0) continue;
           let x = (c - cols / 2) * scale;
           let y = (r - rows / 2) * scale;
+
           let rx = x * cosY - y * sinY;
           let ry = x * sinY + y * cosY;
+
           let px = cx + rx;
           let py = cy + ry * sinX;
           let depth = ry * cosX;
           let w = scale * 0.95;
+          let totalH = val * scale * 0.65;
 
-          groundItems.push({
-            color: getColor(val),
-            depth: depth,
+          // 1. Tassello di base sul terreno (mappa radar 2D)
+          renderItems.push({
+            type: 'ground',
+            depth: depth - 0.1,
             px: px,
             py: py,
-            w: w
+            w: w,
+            color: getColor(val)
           });
-        }
-      }
 
-      // Ordina la base per profondità
-      groundItems.sort((a, b) => a.depth - b.depth);
+          // 2. Colonna verticale stratificata (nucleo solido in basso, strati trasparenti in alto)
+          let numLayers = Math.max(6, Math.floor(val * 0.85));
+          let layerH = totalH / numLayers;
 
-      // Disegna la base solida colorata al suolo
-      groundItems.forEach(g => {
-        ctx.fillStyle = g.color;
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        ctx.rect(g.px - g.w / 2, g.py - 3, g.w, 6);
-        ctx.fill();
-        ctx.stroke();
-      });
+          for (let l = 0; l < numLayers; l++) {
+            let layerTop = py - (layerH * (l + 1));
+            let layerDepth = depth - (l * 0.01);
+            
+            // I livelli inferiori delle celle intense (val >= 8) sono solidi; i superiori o le celle leggere sono trasparenti
+            let isCoreSolid = (l < numLayers * 0.4) && (val >= 8);
 
-      // 2. RENDER STRUTTURA SUPERIORE 3D (Nuclei solidi in basso, strati trasparenti sospesi in alto)
-      let upperItems = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          let val = matrix[r][c];
-          if (val <= 0) continue;
-          let x = (c - cols / 2) * scale;
-          let y = (r - rows / 2) * scale;
-
-          let rx = x * cosY - y * sinY;
-          let ry = x * sinY + y * cosY;
-
-          let px = cx + rx;
-          let py = cy + ry * sinX;
-          let depth = ry * cosX;
-          let w = scale * 0.95;
-
-          if (val >= 8) {
-            // Nuclei intensi (Giallo, Rosso, Magenta): partono dal terreno e salgono solidi
-            let height = val * scale * 0.7;
-            upperItems.push({
-              color: getColor(val),
-              depth: depth,
+            renderItems.push({
+              type: isCoreSolid ? 'solid_core' : 'transparent_anvil',
+              depth: layerDepth,
               px: px,
-              py_base: py,
-              h: height,
+              py: layerTop,
+              h: layerH,
               w: w,
-              type: 'solid'
-            });
-          } else {
-            // Basse riflettività (Azzurro, Verde): cubi trasparenti sospesi in quota
-            let height = val * scale * 0.45;
-            let elevationShift = 55 + (val * 3.5);
-            upperItems.push({
-              color: getColor(val),
-              depth: depth,
-              px: px,
-              py_base: py - elevationShift,
-              h: height,
-              w: w,
-              type: 'transparent'
+              color: getColor(val)
             });
           }
         }
       }
 
-      upperItems.sort((a, b) => a.depth - b.depth);
+      renderItems.sort((a, b) => a.depth - b.depth);
 
-      upperItems.forEach(item => {
-        if (item.type === 'solid') {
+      renderItems.forEach(item => {
+        if (item.type === 'ground') {
+          ctx.fillStyle = item.color;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py - 3, item.w, 6);
+          ctx.fill();
+          ctx.stroke();
+        } else if (item.type === 'solid_core') {
           ctx.fillStyle = item.color;
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py_base - item.h, item.w, item.h);
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
           ctx.fill();
           ctx.stroke();
         } else {
           ctx.strokeStyle = item.color;
-          ctx.fillStyle = getHoleColor(item.color, 0.25);
-          ctx.lineWidth = 1.2;
+          ctx.fillStyle = getHoleColor(item.color, 0.28);
+          ctx.lineWidth = 1;
+          ctx.globalCompositeOperation = 'screen';
           ctx.beginPath();
-          ctx.rect(item.px - item.w / 2, item.py_base - item.h, item.w, item.h);
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
           ctx.fill();
           ctx.stroke();
+          ctx.globalCompositeOperation = 'source-over';
         }
       });
     }
