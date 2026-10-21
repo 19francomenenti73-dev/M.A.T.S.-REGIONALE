@@ -408,8 +408,8 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-  </script>
-    <script>
+      </script>
+        <script>
     let currentTrack = null;
     let rotX = 0.45, rotY = 0.0, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
@@ -473,7 +473,7 @@
     container.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
     container.addEventListener('touchstart', e => { if(e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; } }, { passive: true });
     window.addEventListener('mouseup', () => { isDragging = false; });
-    window.addEventListener('touchend', () => { isDragging = false; });
+    window.addEventListener('touched', () => { isDragging = false; });
 
     window.addEventListener('mousemove', e => {
       if (!isDragging) return;
@@ -517,92 +517,50 @@
       }
     }
 
-    /* NUOVO MOTORE VOXEL INVERTITO / STRATIFICATO A BLOCCHI COMPATTI (Ancorato al suolo, incudine larga in alto, nucleo intenso concentrato al centro/basso) */
+    // 1. VOXEL 3D: Barre verticali piene e solide basate sulla matrice
     function renderVoxelMode() {
       let matrix = currentTrack.grid_matrix || [
         [0,20,35,20,0],[20,40,55,40,20],[35,55,65,55,35],[20,40,55,40,20],[0,20,35,20,0]
       ];
       let rows = matrix.length, cols = rows > 0 ? matrix[0].length : 0;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 40;
-      let scale = Math.min(canvas.width, canvas.height) / 18;
+      let cx = canvas.width / 2, cy = canvas.height / 2 + 30;
+      let scale = Math.min(canvas.width, canvas.height) / 22;
       let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
 
-      // Disegno del cubo contenitore trasparente di base (ancorato al suolo)
-      let baseGridSize = Math.max(rows, cols) * scale * 0.6;
-      ctx.strokeStyle = 'rgba(0, 191, 255, 0.25)';
-      ctx.lineWidth = 1;
-      for(let step = 0; step <= 4; step++) {
-        let altH = step * scale * 0.8;
-        ctx.beginPath();
-        let p1 = getRotatedProj(-baseGridSize, -baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
-        let p2 = getRotatedProj(baseGridSize, -baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
-        let p3 = getRotatedProj(baseGridSize, baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
-        let p4 = getRotatedProj(-baseGridSize, baseGridSize, altH, cx, cy, scale, cosX, sinX, cosY, sinY);
-        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.closePath();
-        ctx.stroke();
-      }
+      let columnsToDraw = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let val = matrix[r][c];
+          if (val <= 0) continue;
+          let x = (c - cols / 2 + 0.5) * 1.0;
+          let y = (r - rows / 2 + 0.5) * 1.0;
+          let px_base = cx - (x * cosY - y * sinY) * scale;
+          let py_base = cy - (x * sinY + y * cosY) * cosX * scale;
+          let depth = (x * sinY + y * cosY) * cosX;
+          let h_px = val * scale * 0.75;
 
-      let blocksToDraw = [];
-      let totalLevels = 6; // Stratificazione verticale del cubo
-
-      for (let lvl = 0; lvl < totalLevels; lvl++) {
-        let heightFraction = lvl / (totalLevels - 1); // 0 = base al suolo, 1 = cima del fungo
-        let currentAlt = (totalLevels - lvl) * scale * 0.65; // Inversione: strati alti in cima, bassi al suolo
-
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            let val = matrix[r][c];
-            if (val <= 0) continue;
-
-            // Logica geometrica del fungo: in alto (lvl 0-1) l'azzurro/verde si estende largo; al centro/basso i valori alti (rosso/magenta) si concentrano e si restringono
-            let distFromCenter = Math.hypot(r - rows/2, c - cols/2);
-            let maxDist = Math.hypot(rows/2, cols/2);
-            let normDist = maxDist > 0 ? distFromCenter / maxDist : 0;
-
-            if (heightFraction < 0.4 && val < 40 && normDist > 0.45) continue; // Crea la forma a fungo smussata ai bordi superiori
-
-            let x = (c - cols / 2) * scale * 0.7;
-            let y = (r - rows / 2) * scale * 0.7;
-            let proj = getRotatedProj(x, y, currentAlt, cx, cy, scale, cosX, sinX, cosY, sinY);
-
-            let colorHex = getColor(val);
-            let alpha = 0.35 + (heightFraction * 0.4); // Più trasparenti in alto, più opachi al nucleo
-
-            blocksToDraw.push({
-              color: colorHex,
-              alpha: alpha,
-              depth: proj.depth,
-              x: proj.x,
-              y: proj.y,
-              size: scale * 0.68
-            });
-          }
+          columnsToDraw.push({
+            color: getColor(val), depth: depth,
+            px_base: px_base, py_top: py_base - h_px, h_px: h_px
+          });
         }
       }
 
-      blocksToDraw.sort((a, b) => a.depth - b.depth);
+      columnsToDraw.sort((a, b) => a.depth - b.depth);
+      let barW = scale * 0.85;
 
-      blocksToDraw.forEach(b => {
-        ctx.fillStyle = getHoleColor(b.color, b.alpha);
-        ctx.strokeStyle = b.color;
-        ctx.lineWidth = 1.2;
+      columnsToDraw.forEach(col => {
+        ctx.fillStyle = col.color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.rect(b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
-        ctx.fill();
-        ctx.stroke();
+        ctx.rect(col.px_base - barW / 2, col.py_top, barW, col.h_px);
+        ctx.fill(); ctx.stroke();
       });
     }
 
-    function getRotatedProj(x, y, z, cx, cy, scale, cosX, sinX, cosY, sinY) {
-      let rx = x * cosY - y * sinY;
-      let ry = x * sinY + y * cosY;
-      let depth = ry * cosX - z * sinX;
-      let projX = cx + rx;
-      let projY = cy - (ry * sinX + z * cosX);
-      return { x: projX, y: projY, depth: depth };
-    }
-
+    // 2. NUBE VOLUMETRICA: Particelle sferiche sfumate in colonna
     function renderVolumetricMode() {
       let matrix = currentTrack.grid_matrix || [[0,30,50,30,0],[30,50,65,50,30],[0,30,50,30,0]];
       let rows = matrix.length, cols = matrix[0].length;
@@ -647,6 +605,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
+    // 3. ISOSUPERFICI / SCHEMATICO: Profilo convettivo stratificato completo e corretto
     function renderIsosuperficiSchematicMode() {
       let cx = canvas.width / 2, cy = canvas.height / 2 + 20;
       let scale = Math.min(canvas.width, canvas.height) / 16;
@@ -710,6 +669,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
+    // 4. HOLO WIREFRAME: Barre wireframe trasparenti con scansione laser
     function runWireframeLoop() {
       if (active3DViewMode !== 'holo') return;
       scanAngle += 0.03;
