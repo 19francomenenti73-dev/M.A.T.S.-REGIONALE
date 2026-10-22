@@ -226,10 +226,10 @@
     </div>
     <div class="controls-hint">Trascina per ruotare a 360° | Ancorato al centro</div>
     <div class="mode-selector-bar">
-      <button class="mode-btn active" id="btn-mode-voxel" onclick="set3DMode('voxel')">VOXEL 3D</button>
+      <button class="mode-btn" id="btn-mode-voxel" onclick="set3DMode('voxel')">VOXEL 3D</button>
       <button class="mode-btn" id="btn-mode-holo" onclick="set3DMode('holo')">HOLO WIREFRAME</button>
       <button class="mode-btn" id="btn-mode-volumetric" onclick="set3DMode('volumetric')">NUBE VOLUMETRICA</button>
-      <button class="mode-btn" id="btn-mode-isosuperfici" onclick="set3DMode('isosuperfici')">FOTOREALISTICO</button>
+      <button class="mode-btn active" id="btn-mode-isosuperfici" onclick="set3DMode('isosuperfici')">FOTOREALISTICO</button>
     </div>
   </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -406,11 +406,11 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-      </script>
-        <script>
+          </script>
+            <script>
     let currentTrack = null;
     let rotX = -0.35, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
-    let active3DViewMode = 'voxel';
+    let active3DViewMode = 'isosuperfici';
     let wireframeAnimId = null;
     let scanAngle = 0;
 
@@ -521,197 +521,9 @@
       ];
     }
 
-    // 1. VOXEL 3D
-    function renderVoxelMode() {
-      let matrix = getGridStructure();
+    // Funzione Ausiliaria per Disegnare il Terreno Radar al Suolo
+    function drawGroundBase(cx, cy, scale, cosY, sinY, sinX, cosX, matrix) {
       let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
-      let scale = Math.min(canvas.width, canvas.height) / 22;
-
-      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
-
-      let items = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          let val = matrix[r][c];
-          if (val <= 0) continue;
-          let x = (c - cols / 2) * scale;
-          let y = (r - rows / 2) * scale;
-
-          let rx = x * cosY - y * sinY;
-          let ry = x * sinY + y * cosY;
-
-          let px = cx + rx;
-          let py = cy + ry * sinX;
-          let depth = ry * cosX;
-          let height = val * scale * 0.6;
-
-          items.push({
-            color: getColor(val),
-            depth: depth,
-            px: px,
-            py: py,
-            h: height,
-            w: scale * 0.9
-          });
-        }
-      }
-
-      items.sort((a, b) => a.depth - b.depth);
-
-      items.forEach(item => {
-        ctx.fillStyle = item.color;
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.rect(item.px - item.w / 2, item.py - item.h, item.w, item.h);
-        ctx.fill();
-        ctx.stroke();
-      });
-    }
-
-    // 2. HOLO WIREFRAME
-    function runWireframeLoop() {
-      if (active3DViewMode !== 'holo') return;
-      scanAngle += 0.04;
-      rotY += 0.005;
-
-      updateCanvasSize();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!currentTrack) return;
-
-      let matrix = getGridStructure();
-      let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
-      let scale = Math.min(canvas.width, canvas.height) / 22;
-
-      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
-
-      let items = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          let val = matrix[r][c];
-          if (val <= 0) continue;
-          let x = (c - cols / 2) * scale;
-          let y = (r - rows / 2) * scale;
-
-          let rx = x * cosY - y * sinY;
-          let ry = x * sinY + y * cosY;
-
-          let px = cx + rx;
-          let py = cy + ry * sinX;
-          let depth = ry * cosX;
-          let height = val * scale * 0.6;
-
-          items.push({
-            color: getColor(val),
-            depth: depth,
-            px: px,
-            py: py,
-            h: height,
-            w: scale * 0.9
-          });
-        }
-      }
-
-      items.sort((a, b) => a.depth - b.depth);
-
-      items.forEach(item => {
-        ctx.strokeStyle = item.color;
-        ctx.fillStyle = getHoleColor(item.color, 0.1);
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.rect(item.px - item.w / 2, item.py - item.h, item.w, item.h);
-        ctx.fill();
-        ctx.stroke();
-      });
-
-      let scanY = cy - 80 + Math.sin(scanAngle) * 90;
-      ctx.strokeStyle = '#00ffcc';
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#00ffcc';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.moveTo(cx - 120, scanY);
-      ctx.lineTo(cx + 120, scanY);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      wireframeAnimId = requestAnimationFrame(runWireframeLoop);
-    }
-
-    // 3. NUBE VOLUMETRICA
-    function renderVolumetricMode() {
-      let matrix = getGridStructure();
-      let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 + 50;
-      let scale = Math.min(canvas.width, canvas.height) / 22;
-
-      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
-
-      let volumetricBlocks = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          let val = matrix[r][c];
-          if (val <= 0) continue;
-          let x = (c - cols / 2) * scale;
-          let y = (r - rows / 2) * scale;
-
-          let rx = x * cosY - y * sinY;
-          let ry = x * sinY + y * cosY;
-
-          let px = cx + rx;
-          let py = cy + ry * sinX;
-          let depth = ry * cosX;
-          let totalH = val * scale * 0.6;
-          let w = scale * 0.9;
-
-          let numLayers = Math.max(6, Math.floor(val * 0.8));
-          let blockH = totalH / numLayers;
-
-          for (let l = 0; l < numLayers; l++) {
-            let currentTop = py - (blockH * (l + 1));
-            volumetricBlocks.push({
-              color: getColor(val),
-              depth: depth - (l * 0.02),
-              px: px,
-              py: currentTop,
-              h: blockH,
-              w: w
-            });
-          }
-        }
-      }
-
-      volumetricBlocks.sort((a, b) => a.depth - b.depth);
-
-      ctx.globalCompositeOperation = 'screen';
-      volumetricBlocks.forEach(b => {
-        ctx.strokeStyle = b.color;
-        ctx.fillStyle = getHoleColor(b.color, 0.35);
-        ctx.lineWidth = 1.0;
-        ctx.beginPath();
-        ctx.rect(b.px - b.w / 2, b.py, b.w, b.h);
-        ctx.fill();
-        ctx.stroke();
-      });
-      ctx.globalCompositeOperation = 'source-over';
-    }
-
-    // 4. FOTOREALISTICO (Stile RASTER PIXEL NEXRAD: Blocchi pieni, netti, squadrati e definiti)
-    function renderPseudo3DMode() {
-      let matrix = getGridStructure();
-      let rows = matrix.length, cols = matrix[0].length;
-      let cx = canvas.width / 2, cy = canvas.height / 2 - 30;
-      let scale = Math.min(canvas.width, canvas.height) / 22;
-
-      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
-
-      // 1. TERRENO RADAR AL SUOLO (Griglia Pixel Piena)
       let groundItems = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -740,8 +552,229 @@
         ctx.fill();
         ctx.stroke();
       });
+    }
 
-      // 2. COLONNE VERTICALI (Incudine in alto, pixel raster solidi che scendono)
+    // 1. VOXEL 3D (Allineato: Incudine in alto, core verso il basso)
+    function renderVoxelMode() {
+      let matrix = getGridStructure();
+      let rows = matrix.length, cols = matrix[0].length;
+      let cx = canvas.width / 2, cy = canvas.height / 2 - 30;
+      let scale = Math.min(canvas.width, canvas.height) / 22;
+
+      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
+
+      drawGroundBase(cx, cy, scale, cosY, sinY, sinX, cosX, matrix);
+
+      let columns = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let val = matrix[r][c];
+          if (val <= 0) continue;
+
+          let x = (c - cols / 2) * scale;
+          let y = (r - rows / 2) * scale;
+          let rx = x * cosY - y * sinY;
+          let ry = x * sinY + y * cosY;
+
+          let basePx = cx + rx;
+          let topPy = cy + ry * sinX - 20;
+          let depth = ry * cosX;
+
+          let totalH = val * scale * 0.65;
+          let numLayers = 8;
+          let layerH = totalH / numLayers;
+
+          let layers = [];
+          for (let l = 0; l < numLayers; l++) {
+            let norm = l / (numLayers - 1);
+            let layerPy = topPy + (layerH * l);
+            let blockW = scale * 0.9;
+
+            layers.push({
+              px: basePx,
+              py: layerPy,
+              w: blockW,
+              h: layerH,
+              color: getColor(val)
+            });
+          }
+          columns.push({ depth: depth, layers: layers });
+        }
+      }
+
+      columns.sort((a, b) => a.depth - b.depth);
+
+      columns.forEach(col => {
+        col.layers.forEach(item => {
+          ctx.fillStyle = item.color;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+          ctx.fill();
+          ctx.stroke();
+        });
+      });
+    }
+
+    // 2. HOLO WIREFRAME (Allineato con scanner centrato)
+    function runWireframeLoop() {
+      if (active3DViewMode !== 'holo') return;
+      scanAngle += 0.04;
+      rotY += 0.005;
+
+      updateCanvasSize();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!currentTrack) return;
+
+      let matrix = getGridStructure();
+      let rows = matrix.length, cols = matrix[0].length;
+      let cx = canvas.width / 2, cy = canvas.height / 2 - 30;
+      let scale = Math.min(canvas.width, canvas.height) / 22;
+
+      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
+
+      drawGroundBase(cx, cy, scale, cosY, sinY, sinX, cosX, matrix);
+
+      let columns = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let val = matrix[r][c];
+          if (val <= 0) continue;
+
+          let x = (c - cols / 2) * scale;
+          let y = (r - rows / 2) * scale;
+          let rx = x * cosY - y * sinY;
+          let ry = x * sinY + y * cosY;
+
+          let basePx = cx + rx;
+          let topPy = cy + ry * sinX - 20;
+          let depth = ry * cosX;
+
+          let totalH = val * scale * 0.65;
+          let numLayers = 8;
+          let layerH = totalH / numLayers;
+
+          let layers = [];
+          for (let l = 0; l < numLayers; l++) {
+            let layerPy = topPy + (layerH * l);
+            let blockW = scale * 0.9;
+
+            layers.push({
+              px: basePx,
+              py: layerPy,
+              w: blockW,
+              h: layerH,
+              color: getColor(val)
+            });
+          }
+          columns.push({ depth: depth, layers: layers });
+        }
+      }
+
+      columns.sort((a, b) => a.depth - b.depth);
+
+      columns.forEach(col => {
+        col.layers.forEach(item => {
+          ctx.strokeStyle = item.color;
+          ctx.fillStyle = getHoleColor(item.color, 0.15);
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+          ctx.fill();
+          ctx.stroke();
+        });
+      });
+
+      // Linea scanner centrata perfettamente nel corpo della nube
+      let scanY = cy + 20 + Math.sin(scanAngle) * 50;
+      ctx.strokeStyle = '#00ffcc';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#00ffcc';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(cx - 130, scanY);
+      ctx.lineTo(cx + 130, scanY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      wireframeAnimId = requestAnimationFrame(runWireframeLoop);
+    }
+
+    // 3. NUBE VOLUMETRICA (Allineata: Traslucida verso il basso)
+    function renderVolumetricMode() {
+      let matrix = getGridStructure();
+      let rows = matrix.length, cols = matrix[0].length;
+      let cx = canvas.width / 2, cy = canvas.height / 2 - 30;
+      let scale = Math.min(canvas.width, canvas.height) / 22;
+
+      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
+
+      drawGroundBase(cx, cy, scale, cosY, sinY, sinX, cosX, matrix);
+
+      let volumetricBlocks = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let val = matrix[r][c];
+          if (val <= 0) continue;
+          let x = (c - cols / 2) * scale;
+          let y = (r - rows / 2) * scale;
+
+          let rx = x * cosY - y * sinY;
+          let ry = x * sinY + y * cosY;
+
+          let basePx = cx + rx;
+          let topPy = cy + ry * sinX - 20;
+          let depth = ry * cosX;
+
+          let totalH = val * scale * 0.65;
+          let numLayers = Math.max(6, Math.floor(val * 0.8));
+          let layerH = totalH / numLayers;
+
+          for (let l = 0; l < numLayers; l++) {
+            let layerPy = topPy + (layerH * l);
+            volumetricBlocks.push({
+              color: getColor(val),
+              depth: depth + (l * 0.01),
+              px: basePx,
+              py: layerPy,
+              h: layerH,
+              w: scale * 0.95
+            });
+          }
+        }
+      }
+
+      volumetricBlocks.sort((a, b) => a.depth - b.depth);
+
+      ctx.globalCompositeOperation = 'screen';
+      volumetricBlocks.forEach(b => {
+        ctx.strokeStyle = b.color;
+        ctx.fillStyle = getHoleColor(b.color, 0.35);
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.rect(b.px - b.w / 2, b.py, b.w, b.h);
+        ctx.fill();
+        ctx.stroke();
+      });
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // 4. FOTOREALISTICO (NEXRAD Pixel Raster)
+    function renderPseudo3DMode() {
+      let matrix = getGridStructure();
+      let rows = matrix.length, cols = matrix[0].length;
+      let cx = canvas.width / 2, cy = canvas.height / 2 - 30;
+      let scale = Math.min(canvas.width, canvas.height) / 22;
+
+      let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+      let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
+
+      drawGroundBase(cx, cy, scale, cosY, sinY, sinX, cosX, matrix);
+
       let columns = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -765,12 +798,10 @@
           for (let l = 0; l < numLayers; l++) {
             let norm = l / (numLayers - 1);
             let layerPy = topPy + (layerH * l);
-            let isCore = (val >= 8);
 
             let widthFactor = 0.7 + ((1 - norm) * 0.8);
             let blockW = scale * 0.9 * widthFactor;
 
-            // Stile raster NEXRAD: pieno, squadrato e con bordi definiti per un look digitale nitido
             layers.push({
               px: basePx,
               py: layerPy,
@@ -789,7 +820,7 @@
       columns.forEach(col => {
         col.layers.forEach(item => {
           ctx.fillStyle = item.color;
-          ctx.strokeStyle = '#111111'; // Bordo netto stile griglia pixel radar
+          ctx.strokeStyle = '#111111';
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
