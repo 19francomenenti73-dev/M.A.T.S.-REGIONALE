@@ -20,7 +20,12 @@
       width: 100%;
       height: 100vh;
     }
-    /* Header MAtS */
+    /* Animazione Arcobaleno Pulsante per MATS */
+    @keyframes rainbowPulse {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
     .mats-header {
       position: absolute;
       top: 12px;
@@ -29,31 +34,38 @@
       z-index: 1000;
       text-align: center;
       pointer-events: none;
-      background: rgba(10, 10, 10, 0.85);
-      padding: 8px 24px;
-      border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(10, 10, 10, 0.88);
+      padding: 8px 26px;
+      border-radius: 22px;
+      border: 1px solid rgba(0, 191, 255, 0.3);
       backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.7);
     }
     .mats-title {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 900;
-      letter-spacing: 2px;
-      color: #00bfff;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      background: linear-gradient(270deg, #ff0055, #ff9e00, #ffff00, #00ffcc, #00bfff, #9900ff, #ff0055);
+      background-size: 400% 400%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: rainbowPulse 5s ease infinite;
+      filter: drop-shadow(0 0 10px rgba(0, 191, 255, 0.4));
     }
     .mats-subtitle {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       color: #00bfff;
       letter-spacing: 1.2px;
       text-transform: uppercase;
       margin-top: 2px;
+      line-height: 1.3;
     }
     /* Navbar Regioni Superiore */
     .region-nav {
       position: absolute;
-      top: 73px;
+      top: 78px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
@@ -203,8 +215,8 @@
 </head>
 <body>
   <div class="mats-header">
-    <div class="mats-title">MAtS</div>
-    <div class="mats-subtitle">Mesoscale Advanced Tracking System</div>
+    <div class="mats-title">MATS</div>
+    <div class="mats-subtitle">Mesoscale Advanced Tracking System<br>Regionale</div>
   </div>
   <div class="region-nav" id="region-nav-container"></div>
   <div id="map"></div>
@@ -406,8 +418,8 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-          </script>
-            <script>
+  </script>
+    <script>
     let currentTrack = null;
     let rotX = -0.35, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'isosuperfici';
@@ -521,7 +533,6 @@
       ];
     }
 
-    // Funzione Ausiliaria per Disegnare il Terreno Radar al Suolo
     function drawGroundBase(cx, cy, scale, cosY, sinY, sinX, cosX, matrix) {
       let rows = matrix.length, cols = matrix[0].length;
       let groundItems = [];
@@ -554,7 +565,6 @@
       });
     }
 
-    // 1. VOXEL 3D (Allineato: Incudine in alto, core verso il basso)
     function renderVoxelMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -587,10 +597,8 @@
 
           let layers = [];
           for (let l = 0; l < numLayers; l++) {
-            let norm = l / (numLayers - 1);
             let layerPy = topPy + (layerH * l);
             let blockW = scale * 0.9;
-
             layers.push({
               px: basePx,
               py: layerPy,
@@ -618,7 +626,6 @@
       });
     }
 
-    // 2. HOLO WIREFRAME (Allineato con scanner centrato)
     function runWireframeLoop() {
       if (active3DViewMode !== 'holo') return;
       scanAngle += 0.04;
@@ -661,7 +668,6 @@
           for (let l = 0; l < numLayers; l++) {
             let layerPy = topPy + (layerH * l);
             let blockW = scale * 0.9;
-
             layers.push({
               px: basePx,
               py: layerPy,
@@ -688,7 +694,6 @@
         });
       });
 
-      // Linea scanner centrata perfettamente nel corpo della nube
       let scanY = cy + 20 + Math.sin(scanAngle) * 50;
       ctx.strokeStyle = '#00ffcc';
       ctx.lineWidth = 2.5;
@@ -703,7 +708,6 @@
       wireframeAnimId = requestAnimationFrame(runWireframeLoop);
     }
 
-    // 3. NUBE VOLUMETRICA (Allineata: Traslucida verso il basso)
     function renderVolumetricMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -722,7 +726,6 @@
           if (val <= 0) continue;
           let x = (c - cols / 2) * scale;
           let y = (r - rows / 2) * scale;
-
           let rx = x * cosY - y * sinY;
           let ry = x * sinY + y * cosY;
 
@@ -763,7 +766,6 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (NEXRAD Pixel Raster)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -798,7 +800,6 @@
           for (let l = 0; l < numLayers; l++) {
             let norm = l / (numLayers - 1);
             let layerPy = topPy + (layerH * l);
-
             let widthFactor = 0.7 + ((1 - norm) * 0.8);
             let blockW = scale * 0.9 * widthFactor;
 
@@ -810,7 +811,6 @@
               color: getColor(val)
             });
           }
-
           columns.push({ depth: depth, layers: layers });
         }
       }
