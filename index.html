@@ -406,8 +406,8 @@
         marker.on('click', () => open3DViewer(track));
       });
     }
-  </script>
-    <script>
+      </script>
+        <script>
     let currentTrack = null;
     let rotX = -0.35, rotY = 0.5, isDragging = false, lastMouseX = 0, lastMouseY = 0;
     let active3DViewMode = 'voxel';
@@ -420,7 +420,7 @@
       let modal = document.getElementById('viewer-3d-modal');
       modal.style.display = 'flex';
 
-      setTimeout(() => { set3DMode('voxel'); }, 60);
+      setTimeout(() => { set3DMode('isosuperfici'); }, 60);
 
       let dbzVal = track.dbz || 45;
       let rainRate = Math.round(Math.pow(10, (dbzVal - 16) / 40.0) * 10) / 10;
@@ -473,7 +473,6 @@
     window.addEventListener('mouseup', () => { isDragging = false; });
     window.addEventListener('touchend', () => { isDragging = false; });
 
-    // ROTAZIONE SOLO ORIZZONTALE
     window.addEventListener('mousemove', e => {
       if (!isDragging) return;
       rotY += (e.clientX - lastMouseX) * 0.01;
@@ -702,7 +701,7 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 4. FOTOREALISTICO (Corretto: Incudine in alto, core riflettivi che scendono verso il basso)
+    // 4. FOTOREALISTICO (Stile RASTER PIXEL NEXRAD: Blocchi pieni, netti, squadrati e definiti)
     function renderPseudo3DMode() {
       let matrix = getGridStructure();
       let rows = matrix.length, cols = matrix[0].length;
@@ -712,7 +711,7 @@
       let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
       let sinX = Math.sin(rotX), cosX = Math.cos(rotX);
 
-      // 1. TERRENO RADAR AL SUOLO
+      // 1. TERRENO RADAR AL SUOLO (Griglia Pixel Piena)
       let groundItems = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -734,15 +733,15 @@
       groundItems.sort((a, b) => a.depth - b.depth);
       groundItems.forEach(item => {
         ctx.fillStyle = item.color;
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = '#050505';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.rect(item.px - item.w / 2, item.py - 3, item.w, 6);
         ctx.fill();
         ctx.stroke();
       });
 
-      // 2. COLONNE VERTICALI (Crescita verso il BASSO: Incudine in alto, core che scendono)
+      // 2. COLONNE VERTICALI (Incudine in alto, pixel raster solidi che scendono)
       let columns = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -755,7 +754,7 @@
           let ry = x * sinY + y * cosY;
 
           let basePx = cx + rx;
-          let topPy = cy + ry * sinX - 20; // Punto di partenza superiore (l'incudine)
+          let topPy = cy + ry * sinX - 20;
           let depth = ry * cosX;
 
           let totalH = val * scale * 0.65;
@@ -764,22 +763,20 @@
 
           let layers = [];
           for (let l = 0; l < numLayers; l++) {
-            let norm = l / (numLayers - 1); // 0 = in alto (incudine), 1 = in basso (verso il suolo)
-            let layerPy = topPy + (layerH * l); // Crescita verso il BASSO (+)
+            let norm = l / (numLayers - 1);
+            let layerPy = topPy + (layerH * l);
             let isCore = (val >= 8);
 
-            // Incudine larga in alto, core stretti e solidi che scendono in basso
             let widthFactor = 0.7 + ((1 - norm) * 0.8);
             let blockW = scale * 0.9 * widthFactor;
 
+            // Stile raster NEXRAD: pieno, squadrato e con bordi definiti per un look digitale nitido
             layers.push({
-              type: (isCore && norm > 0.35) ? 'solid_core' : 'transparent_cone',
               px: basePx,
               py: layerPy,
               w: blockW,
               h: layerH,
-              color: getColor(val),
-              alpha: 0.2 + (norm * 0.25)
+              color: getColor(val)
             });
           }
 
@@ -791,23 +788,13 @@
 
       columns.forEach(col => {
         col.layers.forEach(item => {
-          if (item.type === 'solid_core') {
-            ctx.fillStyle = item.color;
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
-            ctx.fill();
-            ctx.stroke();
-          } else {
-            ctx.strokeStyle = item.color;
-            ctx.fillStyle = getHoleColor(item.color, item.alpha);
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
-            ctx.fill();
-            ctx.stroke();
-          }
+          ctx.fillStyle = item.color;
+          ctx.strokeStyle = '#111111'; // Bordo netto stile griglia pixel radar
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.rect(item.px - item.w / 2, item.py, item.w, item.h);
+          ctx.fill();
+          ctx.stroke();
         });
       });
     }
